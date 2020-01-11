@@ -1,0 +1,37 @@
+
+
+int GammaD=1;
+int GammaF=2;
+
+//=================================================================================
+// rectangle
+int N=20;
+real H = 10, W = 5;
+int Nb = 2;
+int flag = 1;  // see what happens when changing the flag parameter (0,1,2,...)
+border Cd(t=0,N){x = t;y=0;label=0;}
+border Cr(t=0,N){x = N-t;y=H;label=0;}
+border Cu(t=0,N){x = W;y=t;label=GammaF;}
+border Cl(t=0,N){x = 0;y=N-t;label=GammaD;}
+
+mesh Rectangle = square(Nb*W,Nb*H,[x*W,y*H],flags=flag);
+
+plot(Rectangle,cmm="Rectangular mesh",wait=1);
+
+//=================================================================================
+
+real alpha = 0.5;
+fespace Vh(Rectangle,P1);
+Vh u,v;
+Vh f=1;
+Vh g=1;
+
+problem Laplace(u,v) =
+  int2d(Rectangle)(dx(u)*dx(v)+dy(u)*dy(v))
+  +int1d(Rectangle,GammaF)(alpha*u*v)
+  -int2d(Rectangle)(f*v)
+  -int1d(Rectangle,GammaF)(g*v)
+  +on(GammaD,u=0);
+
+Laplace;
+plot(u,fill=1);
