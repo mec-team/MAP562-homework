@@ -1,0 +1,52 @@
+//FreeFem Intro
+
+int N=30;
+int N2=-15;
+real R=2;
+real r=1;
+int GammaD=5;
+
+//Mesh a Disk
+mesh Th;
+
+border C(t=0,2*pi){
+  x=R*cos(t);
+  y=R*sin(t);
+  label = GammaD;
+}
+
+plot(C(20),wait=1);
+
+Th=buildmesh(C(N));
+plot(Th,wait=1);
+
+//mesh a rectangle
+mesh rectangle = square(20,10,[x,y]);
+plot(rectangle);
+
+//make a hole
+
+border Cint(t=0,2*pi){
+  x=r*cos(t);
+  y=r*sin(t);
+}
+
+mesh ring = buildmesh(C(N)+Cint(N2));
+plot(ring,wait=1);
+
+//finite element spaces
+
+fespace Vh(Th,P1);
+Vh u,v;
+Vh f=1;
+
+//define and solve a problem
+
+problem Laplace(u,v) =
+int2d(Th)(dx(u)*dx(v)+dy(u)*dy(v))
+-int2d(Th)(f*v)
++on(GammaD,u=0);
+
+Laplace;
+
+plot(u,fill=0,cmm="some solution");

@@ -1,0 +1,25 @@
+// rectangle
+real H = 10, W = 5;
+int Nb = 2;
+int flag = 2;  // see what happens when changing the flag parameter (0,1,2,...)
+mesh Rectangle = square(Nb*W,Nb*H,[x*W,y*H],flags=flag);
+int nb=50, N=5;
+int bsquare = 0;
+
+//plot(Rectangle,cmm="Rectangular mesh",wait=1);
+fespace Vh(Rectangle,P1);
+Vh u,v;
+Vh f=1;
+Vh g=1;
+
+//define and solve a problem
+
+problem Laplace(u,v) =
+int2d(Rectangle)(dx(u)*dx(v)+dy(u)*dy(v))
+-int2d(Rectangle)(f*v)
++int1d(Rectangle,2)(g*v)
++on(4,u=0);
+
+Laplace;
+
+plot(u,fill=0,cmm="some solution");

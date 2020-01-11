@@ -1,0 +1,7 @@
+// rectangle
+real H = 10, W = 5;
+int Nb = 2;
+int flag = 2;  // see what happens when changing the flag parameter (0,1,2,...)
+mesh Rectangle = square(Nb*W,Nb*H,[x*W,y*H],flags=flag);
+
+plot(Rectangle,cmm="Rectangular mesh",wait=1);
