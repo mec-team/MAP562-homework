@@ -1,71 +1,90 @@
-// Resolution of
-// - \div(2\mu e(u))+\div(u)\Id) = f 	in \Omega
-//	u=0		on \Gamma_D
-//	(2\mu e(u))+\div(u)\Id)n=g 	on \Gamma_N
+// by Yucheng BU and Huihui ZHOU
 
-int Nb=20;		// Nb of edges on the boundary
-real lambda=1,mu=1;	// Lamé moduli
-macro f [0,-1]		// Applied volumic loads
-macro g [0,0]		// Boundary loads
-macro vh() [P1,P1]	// finite element space used for displacement
-macro rh() P0		// finite element space used for constraints
+
+
+real lambda=1,mu=0;//change the lambda here for Ex2
+macro f [0,-1]//
+macro g [0,1]//
+macro vh() [P1,P1]//
+macro rh() P0//
 
 
 // L-beam
-// use multi-border to define a polygon
-
+int size = 20;//change the mesh size here for Ex1
 real[int] xL = [0,1,1,0.4,0.4,0];
 real[int] yL = [0,0,0.4,0.4,1,1];
-int[int] labelL = [0,1,2,3,4,5];
-int[int] numberL = 4*[10,4,6,6,4,10];
+int GammaN=1;
+int GammaD=2;
+int[int] labelL = [0,GammaN,0,0,GammaD,0];
+int[int] numberL = size*[10,4,6,6,4,10];
 
 border Lbord(t=0,1; i){
    int nexti = (i+1)%xL.n;
    x = (1-t)*xL[i]+t*xL[nexti];
    y = (1-t)*yL[i]+t*yL[nexti];
-   label = i;
+   label = labelL[i];
 }
 
-mesh Lbeam;
-int GammaN,GammaD;
-{
-	GammaN=1;GammaD=2;
-	int[int] labels=[0,GammaN,0,0,GammaD,0];
-	Lbeam = buildmesh(Lbord(numberL));
-        // construct rectangular mesh using the keyword "square"
-}
+mesh Lbeam = buildmesh(Lbord(numberL));
 
-// macros allow to simplify the writing of formulas
-// a macro is replaced verbatim when used in the code
-// a macro always ends with  "//"
 
 macro u [u1,u2]//
 macro v [v1,v2]//
-fespace Vh(Lbeam,vh);	// finite element space
-Vh u,v;			// state and test functions
+fespace Vh(Lbeam,vh);
+Vh u,v;
 
-real sqrt2=sqrt(2.);    // define a constant when using it in a vector
-                        // otherwise the code will recompute it
-                        // many times
+real sqrt2=sqrt(2.);
 
-macro e(u) [dx(u[0]),dy(u[1]),(dx(u[1])+dy(u[0]))/sqrt2]// symmetric gradient operator
-macro div(u) (dx(u[0])+dy(u[1]))// divergence operator
+macro e(u) [dx(u[0]),dy(u[1]),(dx(u[1])+dy(u[0]))/sqrt2]//
+macro div(u) (dx(u[0])+dy(u[1]))//
 
-// state the elasticity problem using the macros
+
 problem elasticity(u,v)=
       int2d(Lbeam)(2*mu*e(u)'*e(v)+lambda*div(u)*div(v))
-     -int2d(Lbeam)(f'*v)         // volume loads
-     +int1d(Lbeam,GammaN)(g'*v)  // surface loads
-     +on(GammaD,u1=0,u2=0);   // Dirichlet boundary conditions
+     -int2d(Lbeam)(f'*v)
+     +int1d(Lbeam,GammaN)(g'*v)
+     +on(GammaD,u1=0,u2=0);
 
 elasticity;
 {
 	fespace Rh(Lbeam,rh);
-        Rh sigma=sqrt(2.*mu*e(u)'*e(u)+lambda*div(u)*div(u));  // constraints
-	real exa=1/u1[].linfty; // exaggeration factor
-        // use the command movemesh to see the deformation
+  Rh sigma=sqrt(2.*mu*e(u)'*e(u)+lambda*div(u)*div(u));
+	real exa=0.5/u1[].linfty;
 	mesh Th=movemesh(Lbeam,[x+exa*u1,y+exa*u2]);
 	fespace Qh(Th,rh);
 	Qh Sigma=0; Sigma[]=sigma[];
-	plot(Sigma,fill=1,cmm="constraints on deformed mesh; exa="+exa);
+  plot(Lbeam,wait=1,cmm="Mesh of Lbeam");
+	plot(Sigma,wait=1,value=1,fill=1,cmm="constraints on deformed mesh; exa="+exa);
 }
+
+//use a adepted mesh
+
+for(real error=1;error>1.e-4;error/=1.5)
+{
+	elasticity;
+	Lbeam=adaptmesh(Lbeam,u,err=error);  // adapt the mesh in order to decrease the error
+                            // useful for domains producing singularities, like the L-beam
+}
+elasticity;
+{
+	fespace Rh(Lbeam,rh);
+	Rh sigma=sqrt((2.*mu*e(u)+[div(u),div(u),0])'*(2.*mu*e(u)+[div(u),div(u),0]));
+	real exa=0.5/u1[].linfty;
+	mesh Th=movemesh(Lbeam,[x+exa*u1,y+exa*u2]);
+	fespace Qh(Th,rh);
+	Qh Sigma=0; Sigma[]=sigma[];
+  plot(Lbeam,wait=1,cmm="Mesh of Lbeam");
+	plot(Sigma,wait=1,value=1,fill=1,cmm="constraints on deformed mesh with adapted mesh; exa="+exa);
+}
+
+
+/*
+Question 1
+The displacements converge, but the norm of the tensor of constraints diverges.
+With the use of the adpted mesh, this problem is solved
+
+Question 2
+When nu tends to 0.5, then lambda tends to infinity
+The physical interpretation is that the material is incompressible
+The numerical problem is that some triangles are reversed,so we can not get a numerical solution in this situation
+*/
