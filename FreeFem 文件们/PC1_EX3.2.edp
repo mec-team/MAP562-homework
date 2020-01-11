@@ -1,0 +1,76 @@
+//Homework 1 Exercise 3.2 by Huihui ZHOU and Yucheng BU
+
+////////////////////////////////////////////////////////////////////////////////
+//Solve the same problem without using the keyword "problem"
+////////////////////////////////////////////////////////////////////////////////
+
+//Define Parameters
+
+real R=100; //disk radius
+real r=20; //dividing radius for different values of k(x,y)
+int N=500; //Discretisation parameter for the outter circle
+int n=100; //Discretisation parameter for the inner circle
+real k1=1e3; //the value of k1 can be modified
+real alpha=2;
+int GammaD=2;
+int GammaF=1;
+
+//Mesh a Disk
+mesh Disk;
+
+border Cext(t=0,2*pi){
+  x=R*cos(t);
+  y=R*sin(t);
+  label=GammaF;
+}
+
+border Cint(t=0,2*pi){
+  x=r*cos(t);
+  y=r*sin(t);
+}
+
+Disk=buildmesh(Cext(N)+Cint(n));
+
+//finite element spaces
+
+fespace Vh(Disk,P1);
+Vh u,v;
+Vh g=x;
+Vh f=((x^2+y^2-r^2)>0)*(x*y+1);
+Vh k=((x^2+y^2-r^2)<0)*k1 +((x^2+y^2-r^2)>=0);
+
+
+//define and solve the problem with varf
+varf bf(u,v) =
+  int2d(Disk)(k * (dx(u)*dx(v)+dy(u)*dy(v)) )
+  +int1d(Disk,GammaF)(k * alpha*(u*v));
+
+matrix A;
+A = bf(Vh,Vh);              // construct the stiffness matrix
+set(A,solver=UMFPACK);      // set the solver for solving the system
+
+varf Lf(u,v) =
+  int2d(Disk)(f*v)
+  +int1d(Disk,GammaF)(k * g*v);
+
+real[int] b  = Lf(0,Vh);  //real[int] defines a vector of reals in C++
+
+u[] = A^-1*b;
+
+plot(u,cmm="solution of the problem... again",wait=1);
+
+//Another option: solve with keyword varf using only one variational formulation
+varf vf(u,v) =
+  int2d(Disk)(k * (dx(u)*dx(v)+dy(u)*dy(v)) )
+  +int1d(Disk,GammaF)(k * alpha*(u*v))
+  +int2d(Disk)(f*v)
+  +int1d(Disk,GammaF)(k * g*v);
+
+matrix A2;
+A2 = vf(Vh,Vh); //stiffness matrix
+set(A2,solver=UMFPACK);
+real[int] b2  = vf(0,Vh);
+
+u[] = A2^-1*b2;
+
+plot(u,cmm="solution of the problem... again... and again",wait=1);

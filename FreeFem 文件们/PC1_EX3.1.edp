@@ -1,0 +1,55 @@
+//Homework 1 Exercise 3.1 by Huihui ZHOU and Yucheng BU
+
+////////////////////////////////////////////////////////////////////////////////
+//Answer to the question
+//When k1 is very small, the solution in the inner part omega1 has barely any
+//differences compared to the solution in the rest part of the domain omega.
+//However, when k1 is very large, the difference becomes very obvious and in the
+//inner part, u is almost constant to assure the balance of the equation because
+//of the large coefficient k1.
+////////////////////////////////////////////////////////////////////////////////
+
+
+//Define Parameters
+
+int N=500;
+real R=100; //disk radius
+real r=20; //dividing radius for different values of k(x,y)
+real k1=1e3; //the value of k1 can be modified
+real alpha=2;
+int GammaD=2;
+int GammaF=1;
+
+//Mesh a Disk
+mesh Disk;
+
+border C(t=0,2*pi){
+  x=R*cos(t);
+  y=R*sin(t);
+  label=GammaF;
+}
+
+
+Disk=buildmesh(C(N));
+
+
+//finite element spaces
+
+fespace Vh(Disk,P1);
+Vh u,v;
+Vh g=x;
+Vh f=((x^2+y^2-r^2)>0)*(x*y+1);
+Vh k=((x^2+y^2-r^2)<0)*k1 +((x^2+y^2-r^2)>=0);
+
+
+//define and solve the problem
+
+problem Poisson(u,v) =
+  int2d(Disk)(k*(dx(u)*dx(v)+dy(u)*dy(v)))
+  -int1d(Disk,GammaF)(k*v*g)
+  +int1d(Disk,GammaF)(k*v*alpha*u)
+  -int2d(Disk)(f*v);
+
+Poisson;
+
+plot(u,fill=0,cmm="Solution of the problem");
