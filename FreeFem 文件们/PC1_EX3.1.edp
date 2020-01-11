@@ -1,12 +1,14 @@
 //Homework 1 Exercise 3.1 by Huihui ZHOU and Yucheng BU
 
 ////////////////////////////////////////////////////////////////////////////////
-//Answer to the question
-//When k1 is very small, the solution in the inner part omega1 has barely any
-//differences compared to the solution in the rest part of the domain omega.
-//However, when k1 is very large, the difference becomes very obvious and in the
-//inner part, u is almost constant to assure the balance of the equation because
-//of the large coefficient k1.
+/*
+Answer to the question
+When k1 is very small, the solution in the inner part omega1 has barely any
+differences compared to the solution in the rest part of the domain omega.
+However, when k1 is very large, the difference becomes very obvious and in the
+inner part, u is almost constant to assure the balance of the equation because
+of the large coefficient k1.
+*/
 ////////////////////////////////////////////////////////////////////////////////
 
 

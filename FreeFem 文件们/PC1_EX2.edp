@@ -1,6 +1,20 @@
-// by Yucheng BU and Huihui ZHOU
+//Homework 1 Exercise 2 by Huihui ZHOU and Yucheng BU
 
+////////////////////////////////////////////////////////////////////////////////
+/*
+Answer to the questions
 
+Question 1
+The displacements converge, but the norm of the tensor of constraints diverges.
+With the use of the adpted mesh, this problem is solved
+
+Question 2
+When nu tends to 0.5, then lambda tends to infinity
+The physical interpretation is that the material is incompressible
+The numerical problem is that some triangles are reversed,so we can not get a
+numerical solution in this situation
+*/
+////////////////////////////////////////////////////////////////////////////////
 
 real lambda=1,mu=0;//change the lambda here for Ex2
 macro f [0,-1]//
