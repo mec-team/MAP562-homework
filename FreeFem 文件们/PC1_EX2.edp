@@ -9,16 +9,16 @@ The displacements converge, but the norm of the tensor of constraints diverges.
 With the use of the adpted mesh, this problem is solved
 
 Question 2
-When nu tends to 0.5, then lambda tends to infinity
+When nu tends to 0.5, then lambda tends to infinity and mu tends to 0
 The physical interpretation is that the material is incompressible
 The numerical problem is that some triangles are reversed,so we can not get a
 numerical solution in this situation
 */
 ////////////////////////////////////////////////////////////////////////////////
 
-real lambda=1,mu=0;//change the lambda here for Ex2
+real lambda=1,mu=1;//change the mu=0 here for Ex2
 macro f [0,-1]//
-macro g [0,1]//
+macro g [1,1]//
 macro vh() [P1,P1]//
 macro rh() P0//
 
