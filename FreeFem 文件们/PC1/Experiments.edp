@@ -1,0 +1,23 @@
+int x;
+int r = 10;
+
+
+func real k(real a,real b){
+  if (a*a+b*b<r*r) return 2;
+  else return 1;
+}
+
+x=k(10,10);
+
+cout << x << endl;
+
+//define the coefficient k and the function f
+func real k(real a,real b){
+  if (a*a+b*b<r*r) return k1;
+  else return 1;
+}
+
+func real f(real a,real b){
+  if (a*a+b*b>r*r) return a*b+1;
+  else return 0;
+}
