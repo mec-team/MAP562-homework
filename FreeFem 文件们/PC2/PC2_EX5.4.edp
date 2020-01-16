@@ -1,12 +1,12 @@
-//Homework 2 Exercise 5.3  by Yucheng BU and Huihui ZHOU
+//Homework 2 Exercise 5.4  by Yucheng BU and Huihui ZHOU
 
 ///////////////////////////////////////////////////////
 
-//Question 3 Algo Gradient
+//Question 4 Algo Newton
 
 int N=50;
+real k=1e-4; //coefficient for radiation
 
-real k=1e-4;
 macro vh() P1//
 mesh Th;
 int GammaN,GammaD;
@@ -17,53 +17,51 @@ int GammaN,GammaD;
 }
 
 fespace Vh(Th,vh);
+
 Vh du,phi,u;
-//function source
 Vh f=sqrt((x-0.5)^2+(y-0.5)^2)-0.2;
-//f=x^2+1;
 
 
 //initialization
 u = 0;
 
-
 macro grad(u) [dx(u),dy(u)] //
 macro J(u) int2d(Th)(grad(u)'*grad(u)/2.)
          - int2d(Th)(f*u)
-	       + int1d(Th,GammaN)(k/5. *abs(u)^5);
+	       + int1d(Th,GammaN)(k/5. *abs(u)^5) //
+
+// Implement the second-order derivative and Newton algorithm
+//We take the norm in H1
+problem Jlin(du,phi) =
+				int2d(Th)(grad(du)'*grad(phi))
+			 	+int1d(Th,GammaN)(4*k*abs(u)^3*du*phi)
+			 	+int2d(Th)(grad(u)'*grad(phi))
+			 	-int2d(Th)(f*phi)
+			 	+int1d(Th,GammaN)(k*abs(u)^3*u*phi)
+			 	+on(GammaD,du=0);
 
 // Solution loop
-real funcnorm = 1000;
+// Initialize the norm
+real funcnorm = 1e10;
 
-// Counter of the number of gradient steps
 int i=0;
-real lowertolerance =1.e-7;
+real lowertolerance =1.e-15;
 int itermax=1000;
-real stepsize = 0.1; //fixed gradient descent step
 
-//Change the du into the appropriate space
-//We take the norm in H1
-problem dJ(du,phi) =
-        -int2d(Th)(grad(du)'*grad(phi)+du*phi)
-        +int2d(Th)(grad(u)'*grad(phi))
-        -int2d(Th)(f*phi)
-        +int1d(Th,GammaN)(k*abs(u)^3*u*phi)
-        +on(GammaD,du=0);
-
-
+//3 steps are calculated before stop
 while(funcnorm > lowertolerance && i<itermax)
 {
-  dJ;
 
-  u = u - stepsize * du;
+	// Solve the (linear) problem, which yields the Newton update du
+	Jlin;
+
+  u = u + du;
 
   funcnorm = sqrt(int2d(Th)(du*du));
 
   real residual = J(u);
 
 	cout<<"#"<<i<<" J="<<residual << " Norm of du:  " << funcnorm << endl;
-
-  //cout<<"#"<<i<<" J="<<residual << "  " << funcnorm<<endl;
 
 	plot(u,cmm="#"+i+" J="+residual,wait=0,fill=1);
   i++;
