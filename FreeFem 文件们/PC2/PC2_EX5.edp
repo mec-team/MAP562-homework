@@ -1,0 +1,18 @@
+//Homework 2 Exercise 5  by Yucheng BU and Huihui ZHOU
+
+///////////////////////////////////////////////////////
+/*
+Answer to the questions
+
+Question 1
+The variational formulation:
+    int2d(Th)(dx(u)*dx(v)+dy(u)*dy(v))
+    +int1d(Th,GammaN)(k*abs(u)^3*u*v)
+    =int2d(f*v)+on(GammaD,u=0)
+
+Question 2
+
+
+*/
+
+//
