@@ -1,0 +1,81 @@
+//Homework 2 Exercise 5.5  by Yucheng BU and Huihui ZHOU
+
+///////////////////////////////////////////////////////
+
+//Question 5 Algo Fixed-Point
+
+int N=50;
+real k=1e-4; //coefficient for radiation
+real alpha =-1;
+real eps = 1e-9;
+
+macro vh() P1//
+mesh Th;
+int GammaN,GammaD;
+{
+	GammaN=1;GammaD=2;
+	int[int] labels=[GammaN,GammaD,GammaD,GammaN];
+	Th=square(N,N,label=labels);
+}
+
+fespace Vh(Th,vh);
+
+Vh du,phi,u;
+Vh f=sqrt((x-0.5)^2+(y-0.5)^2)-0.2;
+Vh uold = u;
+Vh error;
+
+
+//initialization
+u = 0;
+
+macro grad(u) [dx(u),dy(u)] //
+macro J(u) int2d(Th)(grad(u)'*grad(u)/2.)
+         - int2d(Th)(f*u)
+	       + int1d(Th,GammaN)(k/5. *abs(u)^5) //
+
+//We take the norm in H1
+problem fixedp(u,phi) =
+				int1d(Th,GammaN)(k*(1-alpha)*abs(uold+eps)^3*u*phi)
+				+int1d(Th,GammaN)(k*alpha*abs(uold)^3*u*phi)
+				+int2d(Th)(grad(u)'*grad(phi))
+				-int2d(Th)(f*phi)
+				+on(GammaD,u=0);
+
+// Solution loop
+// Initialize the error
+real err = 1e10;
+
+int i=0;
+real lowertolerance =1.e-15;
+int itermax=1000;
+
+//3 steps are calculated before stop
+while(err > lowertolerance && i<itermax)
+{
+
+	// Solve the (linear) problem, which yields the new u
+	fixedp;
+
+	// compute difference between consecutive iterates
+	error = abs(u-uold);
+	uold = u;
+	err = error[].linfty;
+
+  real residual = J(u);
+
+	cout<<"#"<<i<<" J="<<residual << " error:  " << err << endl;
+
+	plot(u,cmm="#"+i+" J="+residual,wait=0,fill=1);
+  i++;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/*
+Comparison:
+The two methods, the Newton algo and the Fixed-Point algo, solve both a linear
+problem at each iteration. The two methods both converges very fast. It is very
+difficult to see any differences between the two within the framewroks of the
+given problem: they both converge in less than 3 iterations.
+*/
+///////////////////////////////////////////////////////////////////////////////
