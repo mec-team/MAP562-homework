@@ -1,0 +1,73 @@
+
+real T0 = 1;
+int N = 25;
+macro Pk P1 // EOM
+macro Pk0 P0 // EOM
+real TOL = 1e-6;
+real maxstep = 1;
+verbosity = 0;
+
+int gammaD = 0;
+
+int[int] labels = [gammaD,gammaD,gammaD,gammaD];
+
+mesh Th = square(N,N,[10*x,10*y],label=labels);
+
+plot(Th);
+
+func f = max(1-x^2-y^2,0.0);
+
+fespace Vh(Th,Pk);
+fespace Vh0(Th,Pk0);
+
+
+
+real[int] zz = [2,2];
+
+Vh fun;
+macro fz(zz) {
+ fun = f(x-zz[0],y-zz[1]);
+} // EOM
+
+fz(zz)
+
+plot(fun,fill=1);
+
+macro grad(u) [dx(u),dy(u)] // EOM
+
+Vh T,phi,Adj;
+problem Temp(T,phi,solver=CG) = 
+    int2d(Th)(grad(T)'*grad(phi))
+   -int2d(Th)(fun*phi)
+   +on(gammaD,T=0);
+
+Temp;
+
+macro Jz int2d(Th)((T-T0)^2)//
+
+// Compute the values of the functional on a grid
+// to see where are the local minima
+
+real Dx = 1,Dy=1;
+Vh graph=0;
+
+for(int i=0;i<Th.nv;i++){
+   cout << "Iteration " << i << " out of " << Th.nv << endl;
+   zz = [Th(i).x,Th(i).y];
+   fz(zz);
+   Temp;
+   graph[][i] = Jz;
+}
+
+plot(graph,fill=1,cmm="2D view of the function");
+Vh0 ngrad = sqrt(dx(graph)^2+dy(graph)^2);
+plot(ngrad,fill=1,cmm="2D view of the gradient");
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,112 @@
+// solve exercise 2 using directional derivatives
+// less efficient than using the adjoint approach
+
+
+real T0 = 1;
+int N = 50;
+macro Pk P1 // EOM
+macro Pk0 P0 // EOM
+real TOL = 1e-4;
+real maxstep = 1;
+verbosity = 0;
+
+int gammaD = 0;
+
+int[int] labels = [gammaD,gammaD,gammaD,gammaD];
+
+//
+
+mesh Th = square(N,N,[10*x,10*y],label=labels);
+
+plot(Th);
+
+func f = max(1-x^2-y^2,0.0);
+
+fespace Vh(Th,Pk);
+fespace Vh0(Th,Pk0);
+
+
+
+real[int] zz = [2.5,2];
+
+Vh fun;
+
+fun = f(x-zz[0],y-zz[1]);
+
+plot(fun,fill=1);
+
+macro grad(u) [dx(u),dy(u)] // EOM
+
+Vh T,phi,v;
+problem Temp(T,phi) = 
+    int2d(Th)(grad(T)'*grad(phi))
+   -int2d(Th)(fun*phi)
+   +on(gammaD,T=0);
+
+Temp;
+
+plot(T,fill=1);
+real[int] e(2); // the direction
+
+// directional derivative of T in the direction v
+// check the problem from the course
+problem Directv(v,phi) = 
+    int2d(Th)(grad(v)'*grad(phi)) 
+   +int2d(Th)((dx(fun)*e[0]+dy(fun)*e[1])*phi) 
+   +on(gammaD,v=0);
+
+Directv;
+
+real[int] Dz(2);
+real Jz;
+
+
+
+// Optimization loop
+real normg = 1e4;
+real stepsize = 0.1;
+int iter = 1;
+real oldval = 1e19;
+real[int] oldz = zz;
+
+while(normg>TOL&&stepsize>1e-5){
+   fun = f(x-zz[0],y-zz[1]);  // 
+   /*plot(fun,wait=1,fill=1);*/
+   Temp;  // Find the temperature
+   Jz = int2d(Th)((T-T0)^2);  // Compute objective function
+
+   // compute directional derivatives corresponding to 
+   // partial derivatives
+   e=[1,0];
+   Directv;
+   Dz[0] = int2d(Th)(2*(T-T0)*v); // compute corresponding component
+   e=[0,1];
+   Directv;      
+   Dz[1] = int2d(Th)(2*(T-T0)*v);
+   
+   zz = zz - stepsize*Dz; // advance in the direction of the gradient
+
+   normg = sqrt(Dz[0]^2+Dz[1]^2); // compute norm
+
+   // decide if we accept the iteration or not
+   // modify stepsize accordingly
+   if(Jz<oldval*1.001){
+      oldval = Jz;
+      stepsize = min(stepsize*2,maxstep);
+      oldz = zz;
+   }
+   else{
+      zz = oldz;
+      stepsize = stepsize*0.5;
+   }
+   cout << "Iteration " << iter << " | Value: " << Jz << " | Norm gradient: " << normg << " Step: " << stepsize << endl;
+
+   plot(fun,cmm="Iteration "+iter,fill=1);
+   
+   iter++;
+   
+}
+
+
+
+
