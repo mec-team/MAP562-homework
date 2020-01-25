@@ -1,16 +1,15 @@
 //Homework 3 Exercise 1.1 Case Circle-slice by Yucheng BU and Huihui ZHOU
-
+// Omega = B((0,0),1), omega is a slice of Omega with angle pi/6
 ///////////////////////////////////////////////////////////////////////////////
 //Define the domain
 
 // Construct a domain Omega with an inclusion omega
-// Omega = B((0,0),1), omega = B((0,0),0.1)
-// Omega = B((0,0),1), omega is a slice of Omega with angle pi/6
+
 real R = 1;
 
 int N = 30;  // Number of points on boundary
 
-//omega
+//omega = a slice of Omega with angle pi/6
 border C1(t=0,pi/6){
    x = R*cos(t);
    y = R*sin(t);
@@ -27,7 +26,7 @@ border L2(t=0,1){
    label = 2;
 }
 
-//Omega
+//Omega = B((0,0),1)
 border C2(t=pi/6,2*pi){
    x = R*cos(t);
    y = R*sin(t);
