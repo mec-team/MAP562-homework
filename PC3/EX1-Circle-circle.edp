@@ -1,9 +1,12 @@
-// Construct a domain Omega
-// with an inclusion omega
+//Homework 3 Exercise 1.1 Case Circle-circle  by Yucheng BU and Huihui ZHOU
 
+///////////////////////////////////////////////////////////////////////////////
+//Define the domain
+
+// Construct a domain Omega with an inclusion omega
 // Omega = B((0,0),1), omega = B((0,0),0.1)
-real R = 1;  // first radius
-real r = 0.1;// second radius
+real R = 2;  // first radius
+real r = 0.5;// second radius
 
 int N = 10;  // Number of points on boundary
 
@@ -25,8 +28,6 @@ border C2(t=0,2*pi){
 // build the mesh
 mesh Th = buildmesh(C2(2*pi*R*N)+C1(2*pi*r*N));
 
-plot(Th,wait=1);
-
 // get region numbers
 int Omega1 = Th(cx,cy).region;
 int Omega2 = Th(0,0.5*(R+r)).region;
@@ -34,37 +35,99 @@ int Omega2 = Th(0,0.5*(R+r)).region;
 // Finite element spaces
 fespace Vh(Th,P1);
 
+///////////////////////////////////////////////////////////////////////////////
+//Formulate the heat-convection problem
+
 // define the constant u in the problem
-
-// finite element function for the temperature and
-// test function
-Vh T,phi;
-Vh T0 = 10; // finite element function for target temperature
-
 Vh u1,u2;
 u1 = -y;
 u2 = x;
 real fact = 1; /// change this factor to diminish or increase
                 // convective effects
 
-plot([u1,u2],wait=1,cmm="Convection vector field");
+// finite element function for the temperature and test function
+Vh T,phit;
+Vh T0 = 10; // finite element function for target temperature
+Vh p,phip; // finite element function for the adjoint state and test function
 
 real v = 1;
 
 macro grad(u) [dx(u),dy(u)] //  macro for gradient
 
 // FV for heat equation with convection
-// (think why for the given vector field, the convection does not
-// seem to play any role when the two disks are concentric?
-//
-// Change the center of the small disk and the magnitude of the
-// convection factor to observe the differences
-problem Temp(T,phi) =
-   int2d(Th)(grad(T)'*grad(phi))
-  +int2d(Th)(fact*[u1,u2]'*grad(T)*phi)
-  -int2d(Th,Omega1)(v*phi)
+
+problem Temp(T,phit) =
+   int2d(Th)(grad(T)'*grad(phit))
+  +int2d(Th)(fact*[u1,u2]'*grad(T)*phit)
+  -int2d(Th,Omega1)(v*phit)
   +on(2,T=0);
 
-Temp;
+///////////////////////////////////////////////////////////////////////////////
+// Optimisation of J, giving the final solution
 
-plot(T,fill=1,cmm="Heat Equation with Convection",value=1);
+// variable to store the value
+real val;
+
+// compute the objective function and store it in val
+macro J(v) {
+  Temp;
+  val = int2d(Th)((T-T0)^2);
+} //
+
+J(v);
+
+// FV for adjoint state p
+
+problem Getp(p,phip) =
+   int2d(Th)(grad(p)'*grad(phip))
+  -int2d(Th)(fact*[u1,u2]'*grad(p)*phip)
+  +int2d(Th)(2*(T-T0)*phip)
+  +on(2,p=0);
+
+// various parameters for the optimization
+real ngrad = 1e10;
+real TOL = 1e-6;
+real dv;
+real stepsize = 0.1;
+int iter = 1;
+real oldval = val;
+real oldv = v;
+real maxstep = 5000;
+ v = 20;
+
+// optimization loop
+while(ngrad>TOL){
+
+    Getp;
+    dv = int2d(Th,Omega1)(-p); // compute gradient
+
+    v  = v-stepsize*dv;       // update the variable 1
+                              // note that we are in 1D
+
+    J(v);                     // compute the new value
+
+    ngrad = abs(dv);  // norm of gradient, just a scalar here
+
+    // decision: if we decrease the value increase stepsize
+    // else: do not advance and decrease the stepsize
+    if(val<oldval){
+    cout << "Iter " << iter << "  Val:  " << val << " ngrad: " << ngrad << " v= " << v << " step " << stepsize << endl;
+      stepsize = min(2*stepsize,maxstep);
+      oldv = v;
+      oldval = val;
+    }
+    else{
+      v = oldv;
+      stepsize = 0.5*stepsize;
+    }
+
+    // show the result
+    if(ngrad>TOL){
+      plot(T,fill=1,value=1,cmm="Curent temperature : v="+v);
+    }
+    else{
+      plot(T,fill=1,value=1,cmm="Final temperature : v="+v);
+    }
+
+    iter++;   // increase iteration
+}
