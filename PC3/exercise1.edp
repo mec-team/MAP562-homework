@@ -73,7 +73,7 @@ real stepsize = 0.1;
 int iter = 1;
 real oldval = val;
 real oldu = u;
-real maxstep = 0.1;
+real maxstep = 500;
  u = 20;
 
 // optimization loop
@@ -94,20 +94,15 @@ while(ngrad>TOL){
       stepsize = min(2*stepsize,maxstep);
       oldu = u;
       oldval = val;
-    } 
+    }
     else{
       u = oldu;
       stepsize = 0.5*stepsize;
     }
-    
+
     iter++;   // increase iteration
 }
 
 // show the result
 T = u*T1;
 plot(T,fill=1,value=1,cmm="final temperature for u="+u);
-
-
-
-
-

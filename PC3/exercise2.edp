@@ -33,7 +33,7 @@ plot(fun,fill=1);
 macro grad(u) [dx(u),dy(u)] // EOM
 
 Vh T,phi,Adj;
-problem Temp(T,phi) = 
+problem Temp(T,phi) =
     int2d(Th)(grad(T)'*grad(phi))
    -int2d(Th)(fun*phi)
    +on(gammaD,T=0);
@@ -42,9 +42,9 @@ Temp;
 
 plot(T,fill=1);
 
-problem Adjoint(Adj,phi) = 
-    int2d(Th)(grad(Adj)'*grad(phi)) 
-   +int2d(Th)(2*(T-T0)*phi) 
+problem Adjoint(Adj,phi) =
+    int2d(Th)(grad(Adj)'*grad(phi))
+   +int2d(Th)(2*(T-T0)*phi)
    +on(gammaD,Adj=0);
 
 Adjoint;
@@ -67,7 +67,7 @@ real tol = 0.01;
 while(normg>TOL&&stepsize>1e-4){
 
    fun = f(x-zz[0],y-zz[1]);
- 
+
    Temp;
    Jz = int2d(Th)((T-T0)^2);
    Adjoint;
@@ -76,8 +76,15 @@ while(normg>TOL&&stepsize>1e-4){
    Dz[0] = int2d(Th)(gradf*Adj);
    gradf = dy(fun);
    Dz[1] = int2d(Th)(gradf*Adj);
-   
+
    zz = zz - stepsize*Dz;
+
+
+   if(zz[0]<1){zz[0]=1;}
+   if(zz[1]<1){zz[1]=1;}
+   if(zz[0]>9){zz[0]=9;}
+   if(zz[1]>9){zz[1]=9;}
+
 
    normg = sqrt(Dz[0]^2+Dz[1]^2);
 
@@ -93,11 +100,7 @@ while(normg>TOL&&stepsize>1e-4){
    cout << "Iteration " << iter << " | Value: " << Jz << " | Norm gradient: " << normg << " Step: " << stepsize << endl;
 
    plot(fun,cmm="Iteration "+iter,fill=1);
-   
+
    iter++;
-   
+
 }
-
-
-
-
