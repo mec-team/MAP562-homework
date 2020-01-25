@@ -1,40 +1,48 @@
 // Construct a domain Omega
 // with an inclusion omega
-int N = 10;
-// Omega = L
-real[int] xL = [0,10,10,5,5,0];
-real[int] yL = [0,0,5,5,10,10];
-int[int] numberL = N*[10,5,5,5,5,10];
 
-border Lbord(t=0,1; i){
-   int nexti = (i+1)%xL.n;
-   x = (1-t)*xL[i]+t*xL[nexti];
-   y = (1-t)*yL[i]+t*yL[nexti];
+// Omega = B((0,0),1), omega is a slice of Omega with angle pi/6
+real R = 1;
+
+int N = 30;  // Number of points on boundary
+
+//omega
+border C1(t=0,pi/6){
+   x = R*cos(t);
+   y = R*sin(t);
+   label = 3;
+}
+border L1(t=0,1){
+   x = t*R;
+   y = 0;
    label = 1;
 }
+border L2(t=0,1){
+   x = cos(pi/6)*t*R;
+   y = sin(pi/6)*t*R;
+   label = 2;
+}
 
-//omega = B((2,2),1)
-real r = 1;
-real cx = 2;
-real cy = 2;
-border C(t=0,2*pi){
-   x = cx+r*cos(t);
-   y = cy+r*sin(t);
+//Omega
+border C2(t=pi/6,2*pi){
+   x = R*cos(t);
+   y = R*sin(t);
    label = 0;
 }
 
 // build the mesh
-mesh Th = buildmesh(Lbord(numberL)+C(2*pi*r*N));
-plot(Th,wait=1,cmm="Mesh of Lbeam");
+mesh Th = buildmesh(C2(2*pi*R*N)+C1(pi/6*R*N)+L1(N)+L2(N));
+
+plot(Th,wait=1);
 
 // get region numbers
-int Omega1 = Th(cx,cy).region;
-int Omega2 = Th(cx+r,cy+r).region;
+int Omega1 = Th(-0.5*R,-0.5*R).region;
+int Omega2 = Th(0.5*R,0.1*R).region;
 
 // Finite element spaces
 fespace Vh(Th,P1);
 
-
+// define the constant u in the problem
 
 // finite element function for the temperature and
 // test function
@@ -42,22 +50,8 @@ Vh T,phi;
 Vh T0 = 10; // finite element function for target temperature
 
 Vh u1,u2;
-
-macro Phin if ( x == 0 && 0.5 < y < 1){
-              -1
-            }
-            else if( x == 10 ){
-              1
-            }
-            else{
-              0
-            }
-problem vecfield(u,phi) =
-    -int2d(Th)([u1, u2]'*grad(phi))
-    +int1d(Th,1)(Phin*phi);
-
-vecfield;
-
+u1 = -y;
+u2 = x;
 real fact = 1; /// change this factor to diminish or increase
                 // convective effects
 
