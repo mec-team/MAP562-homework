@@ -51,11 +51,11 @@ fespace Vh(Th,P1);
 Vh u1,u2;
 u1 = -y;
 u2 = x;
-real fact = 10; /// change this factor to diminish or increase
+real fact = 1; /// change this factor to diminish or increase
                 // convective effects
 
 // finite element function for the temperature and test function
-Vh T,phit;
+Vh T,phit,Told;
 Vh T0 = 10; // finite element function for target temperature
 Vh p,phip; // finite element function for the adjoint state and test function
 
@@ -84,6 +84,7 @@ macro J(v) {
 } //
 
 J(v);
+T=Told;
 
 // FV for adjoint state p
 
@@ -124,9 +125,11 @@ while(ngrad>TOL){
       stepsize = min(2*stepsize,maxstep);
       oldv = v;
       oldval = val;
+      Told=T;
     }
     else{
       v = oldv;
+      T=Told;
       stepsize = 0.5*stepsize;
     }
 

@@ -46,7 +46,7 @@ real fact = 1; /// change this factor to diminish or increase
                 // convective effects
 
 // finite element function for the temperature and test function
-Vh T,phit;
+Vh T,phit,Told;
 Vh T0 = 10; // finite element function for target temperature
 Vh p,phip; // finite element function for the adjoint state and test function
 
@@ -75,6 +75,7 @@ macro J(v) {
 } //
 
 J(v);
+Told = T;
 
 // FV for adjoint state p
 
@@ -115,9 +116,11 @@ while(ngrad>TOL){
       stepsize = min(2*stepsize,maxstep);
       oldv = v;
       oldval = val;
+      Told = T;
     }
     else{
       v = oldv;
+      T = Told;
       stepsize = 0.5*stepsize;
     }
 
