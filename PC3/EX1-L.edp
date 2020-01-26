@@ -17,7 +17,7 @@ border Lbord(t=0,1; i){
    label = 0;
 }
 
-//omega = B((2,2),1)
+//omega = B((2,2),1),and change the position of omega here for the next case
 real r = 1;
 real cx = 2;
 real cy = 2;
@@ -60,7 +60,7 @@ Vh T0 = 10; // finite element function for target temperature
 Vh p,phip; // finite element function for the adjoint state and test function
 
 real v = 1;
-real fact = 1; // change this factor to diminish or increase// convective effects
+real fact = 100; // change this factor to diminish or increase// convective effects
 // FV for heat equation with convection
 
 problem Temp(T,phit) =
