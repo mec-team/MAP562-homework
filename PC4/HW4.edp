@@ -17,6 +17,7 @@
 
 int niter=30;			// Number of iterations
 int n=2;			// Size of the mesh
+int GammaD = 1, GammaF = 2, GammaN = 3, GammaS = 4;
 real lagrange=1.;		// Lagrange multiplier for the volume constraint
 real lagmin, lagmax ;		// Bounds for the Lagrange multiplier
 int inddico ;
@@ -100,9 +101,10 @@ problem elasticity([u,v],[w,s]) =
     int2d(Th)(2.*mu*h*e(u,v)'*e(w,s)
               +h*lambda*div(u,v)*div(w,s))// bilinear part
 //    -int2d(th)(f1*w+f2*s)
-    -int1d(Th,3)(g1*w+g2*s)	          // forces; for bulk forces, add a volumic term
-    +on(1,u=0)
-    +on(1,v=0)                        // Dirichlet boundary conditions
+    -int1d(Th,GammaN)(g1*w+g2*s)	          // forces; for bulk forces, add a volumic term
+    +on(GammaD,u=0)
+    +on(GammaD,v=0)                        // Dirichlet boundary conditions
+    +on(GammaS,v=0)
 ;
 
 
@@ -113,6 +115,7 @@ problem elasticity([u,v],[w,s]) =
 // Initial volume //
 ////////////////////
 volume0=int2d(Th)(h);
+
 
 ////////////////////////
 // Initial compliance //
