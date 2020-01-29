@@ -1,0 +1,106 @@
+
+real T0 = 1;
+int N = 50;
+macro Pk P1 // EOM
+macro Pk0 P0 // EOM
+real TOL = 1e-6;
+real maxstep = 1;
+verbosity = 0;
+
+int gammaD = 0;
+
+int[int] labels = [gammaD,gammaD,gammaD,gammaD];
+
+//
+
+mesh Th = square(N,N,[10*x,10*y],label=labels);
+
+plot(Th);
+
+func f = max(1-x^2-y^2,0.0);
+
+fespace Vh(Th,Pk);
+fespace Vh0(Th,Pk0);
+
+
+
+real[int] zz = [2,2];
+
+Vh fun;
+
+plot(fun,fill=1);
+
+macro grad(u) [dx(u),dy(u)] // EOM
+
+Vh T,phi,Adj;
+problem Temp(T,phi) =
+    int2d(Th)(grad(T)'*grad(phi))
+   -int2d(Th)(fun*phi)
+   +on(gammaD,T=0);
+
+Temp;
+
+plot(T,fill=1);
+
+problem Adjoint(Adj,phi) =
+    int2d(Th)(grad(Adj)'*grad(phi))
+   +int2d(Th)(2*(T-T0)*phi)
+   +on(gammaD,Adj=0);
+
+Adjoint;
+plot(Adj,fill=1);
+
+real[int] Dz(2);
+real Jz;
+
+
+
+// Optimization loop
+real normg = 1e4;
+real stepsize = 0.001;
+int iter = 1;
+real oldval = 1e19;
+real[int] oldz = zz;
+
+real tol = 0.01;
+
+while(normg>TOL&&stepsize>1e-4){
+
+   fun = f(x-zz[0],y-zz[1]);
+
+   Temp;
+   Jz = int2d(Th)((T-T0)^2);
+   Adjoint;
+   Vh0 gradf;
+   gradf = dx(fun);
+   Dz[0] = int2d(Th)(gradf*Adj);
+   gradf = dy(fun);
+   Dz[1] = int2d(Th)(gradf*Adj);
+
+   zz = zz - stepsize*Dz;
+
+
+   if(zz[0]<1){zz[0]=1;}
+   if(zz[1]<1){zz[1]=1;}
+   if(zz[0]>9){zz[0]=9;}
+   if(zz[1]>9){zz[1]=9;}
+
+
+   normg = sqrt(Dz[0]^2+Dz[1]^2);
+
+   if(Jz<oldval*1.001){
+      oldval = Jz;
+      stepsize = min(stepsize*2,maxstep);
+      oldz = zz;
+   }
+   else{
+      zz = oldz;
+      stepsize = stepsize/2;
+   }
+   cout << "Iteration " << iter << " | Value: " << Jz << " | Norm gradient: " << normg << " Step: " << stepsize << endl;
+
+   plot(fun,cmm="Iteration "+iter,fill=1);
+
+   iter++;
+
+}

@@ -1,0 +1,144 @@
+//Homework 3 Exercise 1.1 Case Circle-slice by Yucheng BU and Huihui ZHOU
+// Omega = B((0,0),1), omega is a slice of Omega with angle pi/6
+///////////////////////////////////////////////////////////////////////////////
+//Define the domain
+
+// Construct a domain Omega with an inclusion omega
+
+real R = 1;
+
+int N = 30;  // Number of points on boundary
+
+//omega = a slice of Omega with angle pi/6
+border C1(t=0,pi/6){
+   x = R*cos(t);
+   y = R*sin(t);
+   label = 0;
+}
+border L1(t=0,1){
+   x = t*R;
+   y = 0;
+   label = 1;
+}
+border L2(t=0,1){
+   x = cos(pi/6)*t*R;
+   y = sin(pi/6)*t*R;
+   label = 2;
+}
+
+//Omega = B((0,0),1)
+border C2(t=pi/6,2*pi){
+   x = R*cos(t);
+   y = R*sin(t);
+   label = 0;
+}
+
+// build the mesh
+mesh Th = buildmesh(C2(2*pi*R*N)+C1(pi/6*R*N)+L1(N)+L2(N));
+
+// get region numbers
+int Omega2 = Th(-0.5*R,-0.5*R).region;
+int Omega1 = Th(0.5*R,0.1*R).region;
+
+// Finite element spaces
+fespace Vh(Th,P1);
+
+///////////////////////////////////////////////////////////////////////////////
+//Formulate the heat-convection problem
+
+// define the constant u in the problem
+Vh u1,u2;
+u1 = -y;
+u2 = x;
+real fact = 1; /// change this factor to diminish or increase
+                // convective effects
+
+// finite element function for the temperature and test function
+Vh T,phit,Told;
+Vh T0 = 10; // finite element function for target temperature
+Vh p,phip; // finite element function for the adjoint state and test function
+
+real v = 1;
+
+macro grad(u) [dx(u),dy(u)] //  macro for gradient
+
+// FV for heat equation with convection
+
+problem Temp(T,phit) =
+   int2d(Th)(grad(T)'*grad(phit))
+  +int2d(Th)(fact*[u1,u2]'*grad(T)*phit)
+  -int2d(Th,Omega1)(v*phit)
+  +on(0,T=0);
+
+///////////////////////////////////////////////////////////////////////////////
+// Optimisation of J, giving the final solution
+
+// variable to store the value
+real val;
+
+// compute the objective function and store it in val
+macro J(v) {
+  Temp;
+  val = int2d(Th)((T-T0)^2);
+} //
+
+J(v);
+T=Told;
+
+// FV for adjoint state p
+
+problem Getp(p,phip) =
+   int2d(Th)(grad(p)'*grad(phip))
+  -int2d(Th)(fact*[u1,u2]'*grad(p)*phip)
+  +int2d(Th)(2*(T-T0)*phip)
+  +on(0,p=0);
+
+// various parameters for the optimization
+real ngrad = 1e10;
+real TOL = 1e-6;
+real dv;
+real stepsize = 0.1;
+int iter = 1;
+real oldval = val;
+real oldv = v;
+real maxstep = 5000;
+ v = 20;
+
+// optimization loop
+while(ngrad>TOL){
+
+    Getp;
+    dv = int2d(Th,Omega1)(-p); // compute gradient
+
+    v  = v-stepsize*dv;       // update the variable 1
+                              // note that we are in 1D
+
+    J(v);                     // compute the new value
+
+    ngrad = abs(dv);  // norm of gradient, just a scalar here
+
+    // decision: if we decrease the value increase stepsize
+    // else: do not advance and decrease the stepsize
+    if(val<oldval){
+    cout << "Iter " << iter << "  Val:  " << val << " ngrad: " << ngrad << " v= " << v << " step " << stepsize << endl;
+      stepsize = min(2*stepsize,maxstep);
+      oldv = v;
+      oldval = val;
+      Told=T;
+    }
+    else{
+      v = oldv;
+      T=Told;
+      stepsize = 0.5*stepsize;
+    }
+
+    // show the result
+    if(ngrad>TOL){
+      plot(T,fill=1,value=1,cmm="Curent temperature : v="+v);
+    }
+    else{
+      plot(T,fill=1,value=1,cmm="Final temperature : v="+v);
+    }
+
+    iter++;   // increase iteration
+}

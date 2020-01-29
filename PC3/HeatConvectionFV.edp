@@ -1,0 +1,77 @@
+// Construct a domain Omega
+// with an inclusion omega
+
+// In this example two disks are considered for simplicity
+real R = 2;  // first radius
+real r = 0.5;// second radius
+
+int N = 10;  // Number of points on boundary
+
+real cx = 1;
+real cy = 0;
+
+border C1(t=0,2*pi){
+   x = cx+r*cos(t);
+   y = cy+r*sin(t);
+   label = 1;
+}
+
+border C2(t=0,2*pi){
+   x = R*cos(t);
+   y = R*sin(t);
+   label = 2;
+}
+
+// build the mesh
+mesh Th = buildmesh(C2(2*pi*R*N)+C1(2*pi*r*N));
+
+plot(Th,wait=1);
+
+// get region numbers
+int Omega1 = Th(cx,cy).region;
+int Omega2 = Th(0,0.5*(R+r)).region;
+
+// Finite element spaces
+fespace Vh(Th,P1);
+
+// define the constant u in the problem
+
+// finite element function for the temperature and
+// test function
+Vh T,phi;
+Vh T0 = 1; // finite element function for target temperature
+
+Vh u1,u2;
+u1 = -y;
+u2 = x;
+real fact = 1; /// change this factor to diminish or increase 
+                // convective effects
+
+plot([u1,u2],wait=1,cmm="Convection vector field");
+
+real v = 1;
+
+macro grad(u) [dx(u),dy(u)] //  macro for gradient
+
+// FV for heat equation with convection
+// (think why for the given vector field, the convection does not
+// seem to play any role when the two disks are concentric?
+// 
+// Change the center of the small disk and the magnitude of the
+// convection factor to observe the differences
+problem Temp(T,phi) =
+   int2d(Th)(grad(T)'*grad(phi))
+  +int2d(Th)(fact*[u1,u2]'*grad(T)*phi)
+  -int2d(Th,Omega1)(v*phi)
+  +on(2,T=0);
+
+Temp;
+
+plot(T,fill=1,cmm="Heat Equation with Convection",value=1);
+
+
+
+
+
+
+

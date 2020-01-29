@@ -1,0 +1,73 @@
+// Construct a domain Omega
+// with an inclusion omega
+int N = 10;
+// Omega = L
+real[int] xL = [0,10,10,5,5,0];
+real[int] yL = [0,0,5,5,10,10];
+int[int] numberL = N*[10,5,5,5,5,10];
+
+border Lbord(t=0,1; i){
+   int nexti = (i+1)%xL.n;
+   x = (1-t)*xL[i]+t*xL[nexti];
+   y = (1-t)*yL[i]+t*yL[nexti];
+   label = 1;
+}
+
+//omega = B((2,2),1)
+real r = 1;
+real cx = 2;
+real cy = 2;
+border C(t=0,2*pi){
+   x = cx+r*cos(t);
+   y = cy+r*sin(t);
+   label = 0;
+}
+
+// build the mesh
+mesh Th = buildmesh(Lbord(numberL)+C(2*pi*r*N));
+plot(Th,wait=1,cmm="Mesh of Lbeam");
+
+// get region numbers
+int Omega1 = Th(cx,cy).region;
+int Omega2 = Th(cx+r,cy+r).region;
+
+// Finite element spaces
+fespace Vh(Th,P1);
+
+// finite element function for the vector field
+
+Vh u1,u2,Phi,phi;
+macro grad(u) [dx(u),dy(u)] //  macro for gradient
+
+problem vecfield(Phi,phi) =
+    -int2d(Th)(grad(Phi)'*grad(phi))
+    +int1d(Th,1)((x == 10)*phi-(x == 0 && 0.5<y<1)*phi);
+
+vecfield;
+u1 = dx(Phi);
+u2 = dy(Phi);
+real fact = 1; /// change this factor to diminish or increase
+                // convective effects
+
+plot([u1,u2],wait=1,cmm="Convection vector field");
+
+real v = 1;
+
+Vh T,phit;
+Vh T0 = 10; // finite element function for target temperature
+
+// FV for heat equation with convection
+// (think why for the given vector field, the convection does not
+// seem to play any role when the two disks are concentric?
+//
+// Change the center of the small disk and the magnitude of the
+// convection factor to observe the differences
+problem Temp(T,phit) =
+   int2d(Th)(grad(T)'*grad(phit))
+  +int2d(Th)(fact*[u1,u2]'*grad(T)*phit)
+  -int2d(Th,Omega1)(v*phit)
+  +on(2,T=0);
+
+Temp;
+
+plot(T,fill=1,cmm="Heat Equation with Convection",value=1);
