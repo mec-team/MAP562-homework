@@ -7,10 +7,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 //parameters
 
-int niter=40;			// Number of iterations
+int niter=50;			// Number of iterations
 int n=2;			// Size of the mesh
 int GammaD = 1, GammaF = 2, GammaN = 3, GammaS = 4;
-real lagrange=1.;		// Lagrange multiplier for the volume constraint
 int inddico ;
 real compliance;		// Compliance
 real volume0;			// Initial volume
@@ -64,7 +63,7 @@ border cir(t=0,2*pi){
 
 // Building the mesh
 Th= buildmesh (bd(10*n)+bs(14*n)+bf1(4*n)+bf2(6*n)+bf3(6*n)+bf4(16*n)+bn(4*n)+cir(-2*pi*n));
-plot(Th,wait=1);
+plot(Th,wait=1,cmm="The domain");
 
 //The indicator fuction k
 func k = (x>=-1 && x<=-0.4)  && (y>=0.5 && y<=0.6);
@@ -125,9 +124,8 @@ cout<<"Initialization. Compliance: "<<compliance<<" Volume: "<<volume0<<endl;
 // Plot of the mesh deformation
 
 real coef = 0.2 ;
-plot(h,fill=1,wait=1,cmm="Plot the density h");
 Dh = movemesh (Th,[x+coef*u,y+coef*v]);
-plot(Dh,wait=1,cmm="Plot of the deformed mesh");
+plot(Dh,wait=1,cmm="Plot of the initial iso-thickness deformed mesh (h = 0.5)");
 
 ////////////////////////////////////////////////////////////////////////////////
 // Optimisation loop
@@ -210,7 +208,7 @@ else
 //Computation of the compliance and the volume
 compliance=int1d(Th,3)(g1*u+g2*v);
 volume=int2d(Th)(h);
-cout<<"Compliance: "<<compliance<<" Volume: "<<volume<<" Lagrange: "<<lagrange<<endl;
+cout<<"Compliance: "<<compliance<<" Volume: "<<volume<<endl;
 
 // Plot the thickness of the current design
 caption="Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
@@ -221,13 +219,13 @@ plot(Th,h,fill=1,value=true,viso=vviso,cmm=caption,wait=0);
 
 //Plot the final design
 caption="Final design, Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
-plot(Th,h,fill=1,value=1,viso=vviso,cmm=caption);
+plot(Th,h,fill=1,value=1,viso=vviso,cmm=caption,wait=1);
 
 // Plot of the mesh deformation
 plot(Th,u,fill=1,value=true,cmm="Final Displacement: u",wait=1);
-plot(Th,v,fill=1,value=true,cmm="Final Displacement:v",wait=1);
+plot(Th,v,fill=1,value=true,cmm="Final Displacement: v",wait=1);
 Dh = movemesh (Th,[x+coef*u,y+coef*v]);
-plot(Dh,cmm="Final Deformation",wait=0);
+plot(Dh,cmm="Final Deformation",wait=1);
 
 // Show convergence curve
 real[int] dis = 1:niter;
@@ -235,8 +233,8 @@ plot([dis,vals],cmm="Evolution of the objective function");
 ////////////////////////////////////////////////////////////////////////////////
 /*
 We recall here that the goal deisplacement is u = 0 and v = 0.2 in the zone where k = 1.
-With the optimised design, we've got a field of u varying from 0.030 to 0.066
-and that of v from 0.18 to 0.27 in the zone where k = 1. The magnitude of the
+With the optimised design, we've got a field of u varying from -0.002 to 0.041
+and that of v from 0.19 to 0.29 in the zone where k = 1. The magnitude of the
 error is thus 1e-2. Compared to the goal, this error is still quite important.
 However, given the fact that it is actually nearly impossible for the perfect
 constant goal displacement to take place, our optimization has already done a
