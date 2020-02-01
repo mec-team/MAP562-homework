@@ -1,0 +1,495 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : // G. Allaire, B. Bogosel 2019
+    2 : // MAP562
+    3 : // Script containing the variational formulation of the elasticity
+    4 : // for the membrane case with coefficients depending on the thickness
+    5 :
+    6 : // You may start from this script to solve the Homework problems
+    7 :
+    8 : // Use ideas from the scripts presented in class, notably:
+    9 :
+   10 : // Preliminary: write the Lagrangian and find its partial derivatives
+   11 : // 1. Define the problem for the adjoint state
+   12 : // 2. Write the correct formula for the gradient (by direct identification in this case)
+   13 : // 3. Take the projection algorithm on the constraint from the
+   14 : //    codes shown in class
+   15 : //
+   16 :
+   17 :
+   18 : int niter=30;                   // Number of iterations
+   19 : int n=2;                        // Size of the mesh
+   20 : int GammaD = 1, GammaF = 2, GammaN = 3, GammaS = 4;
+   21 : real lagrange=1.;               // Lagrange multiplier for the volume constraint
+   22 : real lagmin, lagmax ;           // Bounds for the Lagrange multiplier
+   23 : int inddico ;
+   24 : real compliance;                // Compliance
+   25 : real volume0;                   // Initial volume
+   26 : real volume,
+ *** Warning  The identifier volume hide a Global identifier
+volume1;                // Volume of the current shape
+   27 : real exa=1;                     // Coefficient for the shape deformation
+   28 : string caption;                 // Caption for the graphics
+   29 : real E=100;                     // Young modulus
+   30 : real nu=0.3;                    // Poisson coefficient (between -1 and 1/2)
+   31 : func g1=0;                      // Applied forces
+   32 : func g2=-100;
+   33 : real TOL = 1e-5;
+   34 : real[int] vviso(21);
+   35 : for (int i=0;i<21;i++)
+   36 : vviso[i]=i*0.05 ;
+   37 :
+   38 : real u0 = 0, v0 = 0.2; // Target displacement
+   39 :
+   40 : //////////////////////////////////////
+   41 : // Computation of Lame coefficients //
+   42 : //////////////////////////////////////
+   43 : real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+   44 : real mu=E/(2.*(1.+nu));
+   45 :
+   46 : ////////////////////////////////////////////////////
+   47 : // Lower and upper bounds for the plate thickness //
+   48 : ////////////////////////////////////////////////////
+   49 : real hmin=0.1;
+   50 : real hmax=1.0;
+   51 : real hmoy=0.5;
+   52 : func h0=hmoy ;
+   53 :
+   54 : ///////////////////////                         1:Dirichlet boundary condition
+   55 : // Domain definition //                         2:Neumann boundary or free boundary condition
+   56 : ///////////////////////                         3:Non-homogeneous Neumann or applied load
+   57 : mesh Th, Dh;
+   58 :
+   59 : border bd(t=0,1)       { x=2;    y=t;  label=GammaD; };
+   60 : border bs(t=2,-0.4)    { x=t;    y=1;  label=GammaS; };
+   61 : border bf1(t=1,0.6)    { x=-0.4; y=t;  label=GammaF; };
+   62 : border bf2(t=-0.4,-1)  { x=t;    y=0.6;label=GammaF; };
+   63 : border bf3(t=0.6,0)    { x=-1;   y=t;  label=GammaF; };
+   64 : border bf4(t=-1,1.6)   { x=t;    y=0;  label=GammaF; };
+   65 : border bn(t=1.6,2)     { x=t;    y=0;  label=GammaN; };
+   66 : real r = 0.15;
+   67 : border cir(t=0,2*pi){
+   68 :    x = 1.4+r*cos(t);
+   69 :    y = 0.3+r*sin(t);
+   70 :    label = GammaD;
+   71 : }
+   72 : ///////////////////////
+   73 : // Building the mesh //
+   74 : ///////////////////////
+   75 : Th= buildmesh (bd(10*n)+bs(14*n)+bf1(4*n)+bf2(6*n)+bf3(6*n)+bf4(16*n)+bn(4*n)+cir(-2*pi*n));
+   76 : plot(Th,wait=1);
+   77 :
+   78 : //The indicator fuction k
+   79 : func k = (x>=-1 && x<=-0.4)  && (y>=0.5 && y<=0.6);
+   80 :
+   81 : /////////////////////////////////////////////
+   82 : // Definition of the finite element spaces //
+   83 : /////////////////////////////////////////////
+   84 : fespace Vh0(Th,P0);
+   85 : fespace Vh2(Th,[P2,P2]);
+   86 :
+   87 : Vh2 [u,v],[w,s],[p1,p2],[uold,vold];
+   88 : Vh0 h,hold,density,gradient;
+   89 :
+   90 : h = h0 ;
+   91 : ///////////////////////
+   92 : // Elasticity system //
+   93 : //////////////////////
+   94 :
+   95 : real sqrt2 = sqrt(2);
+   96 :
+   97 : macro e(u,v) [dx(u),dy(v),(dx(v)+dy(u))/sqrt2] )  //
+   98 : macro div(u,v) (dx(u)+dy(v)) )  //
+   99 :
+  100 :
+  101 : //!!!!!
+  102 : // The symmetry condition in elasticity!
+  103 : //
+  104 : // in order to impose a symmetry condition for the elasticity equation
+  105 : // work on half the domain and impose that the displacement
+  106 : // orthogonal to the symmetry axis is zero (as a Dirichlet boundary condition)
+  107 :
+  108 :
+  109 : problem elasticity([u,v],[w,s]) =
+  110 :     int2d(Th)(2.*mu*h*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(w,s)  [dx(w),dy(s),(dx(s)+dy(w))/sqrt2]
+  111 :               +h*lambda*div(u,v)  (dx(u)+dy(v))*div(w,s)  (dx(w)+dy(s)))// bilinear part
+  112 : //    -int2d(th)(f1*w+f2*s)
+  113 :     -int1d(Th,GammaN)(g1*w+g2*s)                  // forces; for bulk forces, add a volumic term
+  114 :     +on(GammaD,u=0)
+  115 :     +on(GammaD,v=0)                        // Dirichlet boundary conditions
+  116 :     +on(GammaS,v=0)
+  117 : ;
+  118 :
+  119 : problem adjoint([p1,p2],[w,s]) =
+  120 :     int2d(Th)(2.*k*[u-u0,v-v0]'*[w,s])
+  121 :     +int2d(Th)(2.*mu*h*e(p1,p2)  [dx(p1),dy(p2),(dx(p2)+dy(p1))/sqrt2]'*e(w,s)  [dx(w),dy(s),(dx(s)+dy(w))/sqrt2]
+  122 :               +h*lambda*div(p1,p2)  (dx(p1)+dy(p2))*div(w,s)  (dx(w)+dy(s)))// bilinear part
+  123 :     +on(GammaD,p1=0)
+  124 :     +on(GammaD,p2=0)                        // Dirichlet boundary conditions
+  125 :     +on(GammaS,p2=0)
+  126 : ;
+  127 :
+  128 : elasticity;
+  129 : adjoint;
+  130 :
+  131 : real objectif, objectifold;
+  132 :
+  133 : gradient = 2.*mu*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(p1,p2)  [dx(p1),dy(p2),(dx(p2)+dy(p1))/sqrt2]+lambda*div(u,v)  (dx(u)+dy(v))*div(p1,p2)  (dx(p1)+dy(p2));
+  134 : objectif=int2d(Th)(k*((u-u0)^2+(v-v0)^2));
+  135 :
+  136 :
+  137 :
+  138 : ////////////////////
+  139 : // Initial volume //
+  140 : ////////////////////
+  141 : volume0=int2d(Th)(h);
+  142 :
+  143 :
+  144 : ////////////////////////
+  145 : // Initial compliance //
+  146 : ////////////////////////
+  147 :
+  148 : compliance=int1d(Th,3)(g1*u+g2*v);
+  149 : cout<<"Initialization. Compliance: "<<compliance<<" Volume: "<<volume0<<endl;
+  150 :
+  151 : //////////////////////////////////
+  152 : // Plot of the mesh deformation //
+  153 : //////////////////////////////////
+  154 : real coef = 0.2 ;
+  155 : plot(h,fill=1,wait=1,cmm="Plot the density h");
+  156 : Dh = movemesh (Th,[x+coef*u,y+coef*v]);
+  157 : plot(Dh,wait=1,cmm="Plot of the deformed mesh");
+  158 :
+  159 : ////////////////////////////////
+  160 : //     Optimisation loop      //
+  161 : ////////////////////////////////
+  162 :
+  163 : int iter;
+  164 :
+  165 : real pas = 0.1;
+  166 :
+  167 : real norgrad=int2d(Th)(gradient*gradient);
+  168 : norgrad=sqrt(norgrad) ;
+  169 : cout << "Gradient: " << norgrad   << endl ;
+  170 : pas=pas/norgrad ;
+  171 : cout << "First step "<< pas << endl;
+  172 :
+  173 : // Macro for truncation
+  174 : macro trunc(u,mm,MM) min(max(u,mm),MM) )  // END of macro
+  175 :
+  176 : // Macro for projection on the integral constraint
+  177 :
+  178 : // !!!! Do not write comments with "//" in macros since this
+  179 : // terminates a macro in FreeFem. Use /*...*/ instead if you want
+  198 # } )  // END of macrohmin,hmax);<< endl;*/l;*/in;
+  199 :
+  200 : real[int] vals(niter);
+  201 :
+  202 : hold = h ;
+  203 : objectifold = objectif ;
+  204 : [uold,vold] = [u,v] ;
+  205 :
+  206 : for (iter=1;iter< niter;iter=iter+1)
+  207 : {
+  208 : cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
+  209 :
+  210 :
+  211 :
+  212 : h = hold - pas*gradient;
+  213 :
+  214 : proj(h,hmoy,Vh0)
+  181 @
+  182 @
+  183 @
+  184 @
+  185 @
+  186 @
+  187 @
+  188 @
+  189 @
+  190 @
+  191 @
+  192 @
+  193 @
+  194 @      /*cout << tmin << " " << tmax << endl;*/
+  195 @      /*cout << v0 << " " << u0 << endl;*/
+  196 @
+  197 @
+  198 @  {
+  181 @    h  = trunc(h,hmin,hmax)  min(max(h,hmin),hmax);
+  182 @    real v0 = 1/Th.area*int2d(Th)(h);
+  183 @    real tmin = hmin-h[].max,tmax = hmax-h[].min;
+  184 @    while(tmax-tmin>TOL||abs(v0-hmoy)>TOL){
+  185 @      real tmid = 0.5*(tmin+tmax);
+  186 @      Vh0 testu = trunc(tmid+h,hmin,hmax)  min(max(tmid+h,hmin),hmax);
+  187 @      v0 = 1/Th.area*int2d(Th)(testu);
+  188 @      if(v0<hmoy){
+  189 @        tmin = tmid;
+  190 @      }
+  191 @      else{
+  192 @        tmax = tmid;
+  193 @      }
+  194 @      /*cout << tmin << " " << tmax << endl;*/
+  195 @      /*cout << v0 << " " << u0 << endl;*/
+  196 @    }
+  197 @    h = trunc(h+tmin,hmin,hmax)  min(max(h+tmin,hmin),hmax);
+  198 @ };
+  215 :
+  216 : // Solve the elasticity equation
+  217 : elasticity;
+  218 :
+  219 : //Compute the objective function
+  220 : objectif=int2d(Th)(k*((u-u0)^2+(v-v0)^2));
+  221 : vals[iter-1] = objectif;
+  222 :
+  223 : if (objectif > objectifold)
+  224 : {
+  225 : // if we do not descent we refuse the step
+  226 :   pas = pas / 2. ;
+  227 :   cout << "Reject: new step=" << pas << endl ;
+  228 :   h=hold ;
+  229 :   [u,v] = [uold,vold];
+  230 :   objectif = objectifold ;
+  231 : }
+  232 : else
+  233 : {
+  234 : // on accepte le pas
+  235 :   pas = pas * 1.1 ;
+  236 :   cout << "New step=" << pas << endl ;
+  237 :   hold = h ;
+  238 :   objectifold = objectif ;
+  239 :   [uold,vold] = [u, v];
+  240 :
+  241 :   // Compute the gradient using the adjoint method //
+  242 :   adjoint ;
+  243 :   gradient = 2.*mu*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(p1,p2)  [dx(p1),dy(p2),(dx(p2)+dy(p1))/sqrt2]+lambda*div(u,v)  (dx(u)+dy(v))*div(p1,p2)  (dx(p1)+dy(p2));
+  244 : };
+  245 :
+  246 :
+  247 : //Computation of the compliance
+  248 : compliance=int1d(Th,3)(g1*u+g2*v);
+  249 : cout<<"Compliance: "<<compliance<<" Volume: "<<volume<<" Lagrange: "<<lagrange<<endl;
+  250 :
+  251 : //////////////////////////////////////////////
+  252 : // Plot the thickness of the current design //
+  253 : //////////////////////////////////////////////
+  254 :
+  255 : caption="Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
+  256 : plot(Th,h,fill=1,value=true,viso=vviso,cmm=caption,wait=0);
+  257 :
+  258 : /////////////////////
+  259 : // End of the loop //
+  260 : /////////////////////
+  261 : };
+  262 :
+  263 : //Plot the final design
+  264 : caption="Final design, Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
+  265 : plot(Th,h,fill=1,value=1,viso=vviso,cmm=caption);
+  266 :
+  267 : //////////////////////////////////
+  268 : // Plot of the mesh deformation //
+  269 : //////////////////////////////////
+  270 : Dh = movemesh (Th,[x+coef*u,y+coef*v]);
+  271 : plot(Dh,wait=0);
+  272 :  sizestack + 1024 =10616  ( 9592 )
+ 
+  --  mesh:  Nb of Triangles =   1152, Nb of Vertices 642
+  -- Solve :
+          min -0.54922  max 0.106087
+  -- Solve :
+          min -0.00203483  max 0.0050252
+Initialization. Compliance: 17.0225 Volume: 1.34625
+Gradient: 0.000550399
+First step 181.686
+Iteration 1 ----------------------------------------
+  -- Solve :
+          min -0.618283  max 0.117263
+New step=199.855
+  -- Solve :
+          min -0.00205777  max 0.00515164
+Compliance: 19.7065 Volume: 0 Lagrange: 1
+Iteration 2 ----------------------------------------
+  -- Solve :
+          min -0.899586  max 0.0897811
+New step=219.841
+  -- Solve :
+          min -0.00193771  max 0.00491559
+Compliance: 29.3381 Volume: 0 Lagrange: 1
+Iteration 3 ----------------------------------------
+  -- Solve :
+          min -1.07026  max 0.192663
+New step=241.825
+  -- Solve :
+          min -0.000854731  max 0.00153797
+Compliance: 33.4899 Volume: 0 Lagrange: 1
+Iteration 4 ----------------------------------------
+  -- Solve :
+          min -1.21431  max 0.152667
+New step=266.007
+  -- Solve :
+          min -0.00116591  max 0.00334165
+Compliance: 35.194 Volume: 0 Lagrange: 1
+Iteration 5 ----------------------------------------
+  -- Solve :
+          min -1.4259  max 0.277855
+New step=292.608
+  -- Solve :
+          min -0.0020882  max 0.000402817
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 6 ----------------------------------------
+  -- Solve :
+          min -1.25495  max 0.239623
+Reject: new step=146.304
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 7 ----------------------------------------
+  -- Solve :
+          min -1.14386  max 0.192584
+Reject: new step=73.152
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 8 ----------------------------------------
+  -- Solve :
+          min -1.07596  max 0.171223
+Reject: new step=36.576
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 9 ----------------------------------------
+  -- Solve :
+          min -1.02691  max 0.158987
+Reject: new step=18.288
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 10 ----------------------------------------
+  -- Solve :
+          min -1.01528  max 0.156951
+Reject: new step=9.144
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 11 ----------------------------------------
+  -- Solve :
+          min -1.03522  max 0.164958
+Reject: new step=4.572
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 12 ----------------------------------------
+  -- Solve :
+          min -1.09402  max 0.165155
+Reject: new step=2.286
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 13 ----------------------------------------
+  -- Solve :
+          min -1.17143  max 0.173285
+Reject: new step=1.143
+Compliance: 42.9753 Volume: 0 Lagrange: 1
+Iteration 14 ----------------------------------------
+  -- Solve :
+          min -1.25338  max 0.18743
+New step=1.2573
+  -- Solve :
+          min -0.00075806  max 0.00156045
+Compliance: 34.2873 Volume: 0 Lagrange: 1
+Iteration 15 ----------------------------------------
+  -- Solve :
+          min -1.31407  max 0.215571
+New step=1.38303
+  -- Solve :
+          min -0.000461581  max 0.000562666
+Compliance: 36.4235 Volume: 0 Lagrange: 1
+Iteration 16 ----------------------------------------
+  -- Solve :
+          min -1.35224  max 0.225782
+New step=1.52133
+  -- Solve :
+          min -0.000550372  max 0.000381638
+Compliance: 37.5459 Volume: 0 Lagrange: 1
+Iteration 17 ----------------------------------------
+  -- Solve :
+          min -1.3736  max 0.227247
+New step=1.67347
+  -- Solve :
+          min -0.000532522  max 0.000367951
+Compliance: 38.0483 Volume: 0 Lagrange: 1
+Iteration 18 ----------------------------------------
+  -- Solve :
+          min -1.37944  max 0.226356
+New step=1.84081
+  -- Solve :
+          min -0.000494867  max 0.000384213
+Compliance: 38.2252 Volume: 0 Lagrange: 1
+Iteration 19 ----------------------------------------
+  -- Solve :
+          min -1.38712  max 0.225817
+New step=2.02489
+  -- Solve :
+          min -0.000462291  max 0.000396987
+Compliance: 38.5013 Volume: 0 Lagrange: 1
+Iteration 20 ----------------------------------------
+  -- Solve :
+          min -1.39624  max 0.225549
+New step=2.22738
+  -- Solve :
+          min -0.000427049  max 0.000410728
+Compliance: 38.8653 Volume: 0 Lagrange: 1
+Iteration 21 ----------------------------------------
+  -- Solve :
+          min -1.40052  max 0.224878
+New step=2.45012
+  -- Solve :
+          min -0.000403359  max 0.00042912
+Compliance: 39.0055 Volume: 0 Lagrange: 1
+Iteration 22 ----------------------------------------
+  -- Solve :
+          min -1.40382  max 0.223973
+New step=2.69513
+  -- Solve :
+          min -0.000378494  max 0.000454111
+Compliance: 39.0762 Volume: 0 Lagrange: 1
+Iteration 23 ----------------------------------------
+  -- Solve :
+          min -1.40829  max 0.223671
+New step=2.96465
+  -- Solve :
+          min -0.000365201  max 0.000464988
+Compliance: 39.1996 Volume: 0 Lagrange: 1
+Iteration 24 ----------------------------------------
+  -- Solve :
+          min -1.41518  max 0.223606
+New step=3.26111
+  -- Solve :
+          min -0.000356856  max 0.000469449
+Compliance: 39.3972 Volume: 0 Lagrange: 1
+Iteration 25 ----------------------------------------
+  -- Solve :
+          min -1.42138  max 0.223964
+New step=3.58722
+  -- Solve :
+          min -0.000354529  max 0.000463442
+Compliance: 39.642 Volume: 0 Lagrange: 1
+Iteration 26 ----------------------------------------
+  -- Solve :
+          min -1.42517  max 0.224479
+New step=3.94594
+  -- Solve :
+          min -0.000354117  max 0.000453684
+Compliance: 39.8997 Volume: 0 Lagrange: 1
+Iteration 27 ----------------------------------------
+  -- Solve :
+          min -1.42817  max 0.224511
+New step=4.34054
+  -- Solve :
+          min -0.000344985  max 0.00045677
+Compliance: 40.083 Volume: 0 Lagrange: 1
+Iteration 28 ----------------------------------------
+  -- Solve :
+          min -1.43013  max 0.224135
+New step=4.77459
+  -- Solve :
+          min -0.000340842  max 0.000470199
+Compliance: 40.2084 Volume: 0 Lagrange: 1
+Iteration 29 ----------------------------------------
+  -- Solve :
+          min -1.43252  max 0.224107
+New step=5.25205
+  -- Solve :
+          min -0.000340094  max 0.000476306
+Compliance: 40.3099 Volume: 0 Lagrange: 1
+times: compile 0.595s, execution 9.035s,  mpirank:0
+ ######## We forget of deleting   -254 Nb pointer,   0Bytes  ,  mpirank 0, memory leak =0
+ CodeAlloc : nb ptr  4533,  size :501560 mpirank: 0
+Ok: Normal End
+ try getConsole F:\github-clone\MAP562-homework\PC4\HW4.edp
