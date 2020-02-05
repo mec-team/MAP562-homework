@@ -1,0 +1,242 @@
+//Homework 4 Exercise 1 by Yucheng BU and Huihui ZHOU
+////////////////////////////////////////////////////////////////////////////////
+// Preliminary question:
+// The boundry condition on the symmetry boundry:
+// the displacement orthogonal to the symmetry axis is zero
+// (as a Dirichlet boundary condition)
+////////////////////////////////////////////////////////////////////////////////
+//parameters
+
+int niter=50;			// Number of iterations
+int n=2;			// Size of the mesh
+int GammaD = 1, GammaF = 2, GammaN = 3, GammaS = 4;
+int inddico ;
+real compliance;		// Compliance
+real volume0;			// Initial volume
+real volume;		// Volume of the current shape
+real exa=1;			// Coefficient for the shape deformation
+string caption;			// Caption for the graphics
+real E=100;			// Young modulus
+real nu=0.3;			// Poisson coefficient (between -1 and 1/2)
+func g1=0;  			// Applied forces
+func g2=-100;
+real TOL = 1e-5;
+real[int] vviso(21);
+for (int i=0;i<21;i++)
+vviso[i]=i*0.05 ;
+
+real u0 = 0, v0 = 0.2; // Target displacement
+
+////////////////////////////////////////////////////////////////////////////////
+// Computation of Lame coefficients
+
+real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+real mu=E/(2.*(1.+nu));
+
+////////////////////////////////////////////////////////////////////////////////
+// Lower and upper bounds for the plate thickness
+
+real hmin=0.1;
+real hmax=1.0;
+real hmoy=0.5;
+func h0=hmoy ;
+
+////////////////////////////////////////////////////////////////////////////////
+// Domain definition
+
+mesh Th, Dh;
+
+border bd(t=0,1)       { x=2;    y=t;  label=GammaD; };
+border bs(t=2,-0.4)    { x=t;    y=1;  label=GammaS; };
+border bf1(t=1,0.6)    { x=-0.4; y=t;  label=GammaF; };
+border bf2(t=-0.4,-1)  { x=t;    y=0.6;label=GammaF; };
+border bf3(t=0.6,0)    { x=-1;   y=t;  label=GammaF; };
+border bf4(t=-1,1.6)   { x=t;    y=0;  label=GammaF; };
+border bn(t=1.6,2)     { x=t;    y=0;  label=GammaN; };
+real r = 0.15;
+border cir(t=0,2*pi){
+   x = 1.4+r*cos(t);
+   y = 0.3+r*sin(t);
+   label = GammaD;
+}
+////////////////////////////////////////////////////////////////////////////////
+
+// Building the mesh
+Th= buildmesh (bd(10*n)+bs(14*n)+bf1(4*n)+bf2(6*n)+bf3(6*n)+bf4(16*n)+bn(4*n)+cir(-2*pi*n));
+plot(Th,wait=1,cmm="The domain");
+
+//The indicator fuction k
+func k = (x>=-1 && x<=-0.4)  && (y>=0.5 && y<=0.6);
+
+////////////////////////////////////////////////////////////////////////////////
+// Definition of the finite element spaces
+
+fespace Vh0(Th,P0);
+fespace Vh2(Th,[P2,P2]);
+
+Vh2 [u,v],[w,s],[p1,p2],[uold,vold];
+Vh0 h,hold,density,gradient;
+
+h = h0 ;
+////////////////////////////////////////////////////////////////////////////////
+// Elasticity system
+
+real sqrt2 = sqrt(2);
+
+macro e(u,v) [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]//
+macro div(u,v) (dx(u)+dy(v))//
+
+problem elasticity([u,v],[w,s]) =
+    int2d(Th)(2.*mu*h*e(u,v)'*e(w,s)
+              +h*lambda*div(u,v)*div(w,s))// bilinear part
+    -int1d(Th,GammaN)(g1*w+g2*s)	        // forces; for bulk forces, add a volumic term
+    +on(GammaD,u=0)
+    +on(GammaD,v=0)                       // Dirichlet boundary conditions
+    +on(GammaS,v=0)
+;
+
+problem adjoint([p1,p2],[w,s]) =
+    int2d(Th)(2.*k*[u-u0,v-v0]'*[w,s])
+    +int2d(Th)(2.*mu*h*e(p1,p2)'*e(w,s)
+              +h*lambda*div(p1,p2)*div(w,s))// bilinear part
+    +on(GammaD,p1=0)
+    +on(GammaD,p2=0)                        // Dirichlet boundary conditions
+    +on(GammaS,p2=0)
+;
+
+elasticity;
+adjoint;
+
+real objectif, objectifold;
+
+gradient = 2.*mu*e(u,v)'*e(p1,p2)+lambda*div(u,v)*div(p1,p2);
+objectif=int2d(Th)(k*((u-u0)^2+(v-v0)^2));
+
+////////////////////////////////////////////////////////////////////////////////
+// Initial volume
+volume0=int2d(Th)(h);
+
+// Initial compliance
+compliance=int1d(Th,3)(g1*u+g2*v);
+cout<<"Initialization. Compliance: "<<compliance<<" Volume: "<<volume0<<endl;
+
+////////////////////////////////////////////////////////////////////////////////
+// Plot of the mesh deformation
+
+real coef = 0.2 ;
+Dh = movemesh (Th,[x+coef*u,y+coef*v]);
+plot(Dh,wait=1,cmm="Plot of the initial iso-thickness deformed mesh (h = 0.5)");
+
+////////////////////////////////////////////////////////////////////////////////
+// Optimisation loop
+
+int iter;
+real pas = 0.05;
+
+real norgrad=int2d(Th)(gradient*gradient);
+norgrad=sqrt(norgrad) ;
+cout << "Gradient: " << norgrad   << endl ;
+pas=pas/norgrad ;
+cout << "First step "<< pas << endl;
+
+// Macro for truncation
+macro trunc(u,mm,MM) min(max(u,mm),MM)//
+
+macro proj(u,u0,Vh) {
+   u  = trunc(u,hmin,hmax);
+   real v0 = 1/Th.area*int2d(Th)(u);
+   real tmin = hmin-u[].max,tmax = hmax-u[].min;
+   while(tmax-tmin>TOL||abs(v0-u0)>TOL){
+     real tmid = 0.5*(tmin+tmax);
+     Vh testu = trunc(tmid+u,hmin,hmax);
+     v0 = 1/Th.area*int2d(Th)(testu);
+     if(v0<u0){
+       tmin = tmid;
+     }
+     else{
+       tmax = tmid;
+     }
+   }
+   u = trunc(u+tmin,hmin,hmax);
+}//
+
+real[int] vals(niter);
+
+hold = h ;
+objectifold = objectif ;
+[uold,vold] = [u,v] ;
+
+for (iter=1;iter<= niter;iter=iter+1)
+{
+cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
+
+h = hold - pas*gradient;
+
+proj(h,hmoy,Vh0);
+
+// Solve the elasticity equation
+elasticity;
+
+//Compute the objective function
+objectif=int2d(Th)(k*((u-u0)^2+(v-v0)^2));
+vals[iter-1] = objectif;
+
+if (objectif > objectifold)
+{
+// if we do not descent we refuse the step
+  pas = pas / 2. ;
+  cout << "Reject: new step=" << pas << endl ;
+  h=hold ;
+  [u,v] = [uold,vold];
+  objectif = objectifold ;
+}
+else
+{
+// on accepte le pas
+  pas = pas * 1.1 ;
+  cout << "New step=" << pas << endl ;
+  hold = h ;
+  objectifold = objectif ;
+  [uold,vold] = [u, v];
+
+  // Compute the gradient using the adjoint method //
+  adjoint ;
+  gradient = 2.*mu*e(u,v)'*e(p1,p2)+lambda*div(u,v)*div(p1,p2);
+};
+
+
+//Computation of the compliance and the volume
+compliance=int1d(Th,3)(g1*u+g2*v);
+volume=int2d(Th)(h);
+cout<<"Compliance: "<<compliance<<" Volume: "<<volume<<endl;
+
+// Plot the thickness of the current design
+caption="Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
+plot(Th,h,fill=1,value=true,viso=vviso,cmm=caption,wait=0);
+
+// End of the loop
+};
+
+//Plot the final design
+caption="Final design, Iteration "+iter+", Compliance "+compliance+", Volume="+volume;
+plot(Th,h,fill=1,value=1,viso=vviso,cmm=caption,wait=1);
+
+// Plot of the mesh deformation
+plot(Th,u,fill=1,value=true,cmm="Final Displacement: u",wait=1);
+plot(Th,v,fill=1,value=true,cmm="Final Displacement: v",wait=1);
+Dh = movemesh (Th,[x+coef*u,y+coef*v]);
+plot(Dh,cmm="Final Deformation",wait=1);
+
+// Show convergence curve
+real[int] dis = 1:niter;
+plot([dis,vals],cmm="Evolution of the objective function");
+////////////////////////////////////////////////////////////////////////////////
+/*
+We recall here that the goal deisplacement is u = 0 and v = 0.2 in the zone where k = 1.
+With the optimised design, we've got a field of u varying from -0.002 to 0.041
+and that of v from 0.19 to 0.29 in the zone where k = 1. The magnitude of the
+error is thus 1e-2. Compared to the goal, this error is still quite important.
+However, given the fact that it is actually nearly impossible for the perfect
+constant goal displacement to take place, our optimization has already done a
+very good job to obtain the goal.
+*/
