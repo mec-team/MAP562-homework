@@ -1,0 +1,176 @@
+real R = 2;
+real r = 0.3;
+real TOL = 1e-6;
+int ng = 3;
+real[int] borderforcex(ng),borderforcey(ng);;
+
+real hmin = 0.1;
+real hmax = 1;
+real h0   = 0.5;
+
+real alpha = 1;
+
+int maxiter = 30;
+int iter;
+verbosity = 0;
+
+real lag,lagmin,lagmax;
+real vol0=h0,vol;
+
+int NN = 5;
+
+real E=2;			// Young modulus
+real nu=0.3;			// Poisson coefficient (between -1 and 1/2)
+
+real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+real mu=E/(2.*(1.+nu));
+
+
+int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100;
+
+border left(t=1,0)   {x=0;y=t;label=Gamma;}
+border right(t=0,1)   {x=2;y=t;label=Gamma;}
+border top(t=2,0) {x=t;y=1;label=Gamma;}
+border sd1(t=0,0.1)   {x=t;y=0;label=GammaD;}
+border s1(t=0.1,0.4)  {x=t;y=0;label=Gamma;}
+border s2(t=0.4,0.7)  {x=t;y=0;label=GammaN2;}
+border s3(t=0.7,0.85) {x=t;y=0;label=Gamma;}
+border s4(t=0.85,1.15){x=t;y=0;label=GammaN1;}
+border s5(t=1.15,1.3) {x=t;y=0;label=Gamma;}
+border s6(t=1.3,1.6)  {x=t;y=0;label=GammaN3;}
+border s7(t=1.6,1.9)    {x=t;y=0;label=Gamma;}
+border sd2(t=1.9,2)    {x=t;y=0;label=GammaD;}
+
+mesh Th = buildmesh(left(10*NN)+sd1(NN)+s1(3*NN)+s2(3*NN)+s3(1.5*NN)+s4(3*NN)+s5(1.5*NN)+s6(3*NN)+s7(3*NN)+sd2(NN)+right(10*NN)+top(20*NN));
+plot(Th,wait=1);
+
+fespace Vh0(Th,P0);
+fespace Vh2(Th,[P2,P2]);
+
+Vh2 [u,v],[w,s],[u1,v1],[u2,v2],[u3,v3];
+Vh0 h,hold,density,newh;
+Vh0 Aeueu;
+
+Vh2 [gx,gy];
+
+int ing = 0;
+
+
+[gx,gy] = [borderforcex[ing],borderforcex[ing]];
+
+
+h = 1+0.1*x^2;
+real avg = 1/Th.area*int2d(Th)(h);
+
+h = h-avg+h0;
+
+real sqrt2 = sqrt(2);
+int[int] k(3);
+
+macro e(u,v) [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]//
+macro div(u,v) (dx(u)+dy(v))//
+
+problem elasticity([u,v],[w,s]) =
+    int2d(Th)(2.*mu*h*e(u,v)'*e(w,s)
+             +h*lambda*div(u,v)*div(w,s))
+    -int1d(Th,GammaN)(k'*gx*w+k'*gy*s)
+    +on(GammaD,u=0,v=0);
+
+macro solvelas
+k = [1,0,0];
+elasticity;
+[u1,v1] = [u,v];
+k = [0,1,0];
+elasticity;
+[u2,v2] = [u,v];
+k = [0,0,1];
+elasticity;
+[u3,v3] = [u,v];//
+
+solvelas;
+
+//plot([u,v]);
+
+real compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
+                  +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
+                  +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
+
+cout << "Compliance: " << compliance << endl;
+
+// Macro for truncation
+macro trunc(u,mm,MM) min(max(u,mm),MM)// END of macro
+
+real[int] vals(1);
+vals[0]=compliance;
+
+for(iter=1;iter<maxiter;iter++){
+
+  Aeueu = h^2*(2*mu*e(u1,v1)'*e(u1,v1)+lambda*div(u1,v1)*div(u1,v1));
+  Aeueu = Aeueu + h^2*(2*mu*e(u2,v2)'*e(u2,v2)+lambda*div(u2,v2)*div(u2,v2));
+  Aeueu = Aeueu + h^2*(2*mu*e(u3,v3)'*e(u3,v3)+lambda*div(u3,v3)*div(u3,v3));
+
+  // upper bound lagmax
+  lagmax = Aeueu[].max/hmin^2;
+  newh = trunc(sqrt(1/lagmax*Aeueu),hmin,hmax);
+  /*vol = vol0-1;
+  while(vol<vol0){
+    lag = lagmax/2;
+    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+    vol  = 1/Th.area*int2d(Th)(newh);
+    if(vol<vol0){lagmax=lagmax/2;}
+    else{break;}
+  }*/
+  cout <<"Lagmax: " << lagmax << "  Min: " << newh[].min << "   Max: " << newh[].max << endl;
+
+  // lower bound lagmin
+  lagmin = Aeueu[].min/hmax^2;
+  newh = trunc(sqrt(1/lagmin*Aeueu),hmin,hmax);
+  /*vol = vol0+1;
+  while(vol>vol0){
+    lag = lagmin*2;
+    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+    vol  = 1/Th.area*int2d(Th)(newh);
+    if(vol>vol0){lagmin=lagmin*2;}
+    else{break;}
+  }*/
+  cout <<"Lagmin: " << lagmin << " Min: " << newh[].min << "   Max: " << newh[].max << endl;
+
+  // dichotomy
+
+  while(abs(lagmax-lagmin)>TOL || abs(vol-vol0)>TOL){
+     lag = 0.5*(lagmax+lagmin);   // look at midpoint
+     newh =  trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+     vol = 1/Th.area*int2d(Th)(newh);
+     if(vol<vol0){
+        lagmax = lag;
+     }
+     else{
+        lagmin = lag;
+     }
+  }
+  hold = h;
+  h =  trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+  vol = 1/Th.area*int2d(Th)(h);
+  //lagmin = Aeueu[].
+
+  solvelas;
+  compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
+                    +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
+                    +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
+  vals = [vals,compliance];
+
+  cout << "Iteration #" << iter << " | Compliance " << compliance << "   Vol frac. " << vol << endl;
+  //exit(0);
+
+  plot(h,fill=1,value=1,wait=0);
+
+  // stopping criterion
+  Vh0 diff = abs(h-hold);
+  if(diff[].max<TOL){break;}
+
+}
+
+real[int] dis = 1:vals.n;
+plot(h,fill=1,value=1,cmm ="Final h", wait=1);
+
+plot([dis,vals],cmm="Evoluion of cost function");
