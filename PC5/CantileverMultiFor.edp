@@ -1,8 +1,14 @@
+//Homework 3 Exercise 2.3 by Yucheng BU and Huihui ZHOU
+
 real R = 2;
 real r = 0.3;
 real TOL = 1e-6;
-int ng = 3;
-real[int] borderforcex(ng),borderforcey(ng);;
+int ng = 3; //number of border force regions
+real[int] borderforcex(ng),borderforcey(ng); //borderforce in different regions
+
+borderforcex = [0,0,0];
+borderforcey = [-1,-1,-1];
+
 
 real hmin = 0.1;
 real hmax = 1;
@@ -17,7 +23,7 @@ verbosity = 0;
 real lag,lagmin,lagmax;
 real vol0=h0,vol;
 
-int NN = 5;
+int NN = 2;
 
 real E=2;			// Young modulus
 real nu=0.3;			// Poisson coefficient (between -1 and 1/2)
@@ -26,7 +32,7 @@ real lambda=E*nu/((1.+nu)*(1.-2.*nu));
 real mu=E/(2.*(1.+nu));
 
 
-int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100;
+int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100; //Define different borderforce regions
 
 border left(t=1,0)   {x=0;y=t;label=Gamma;}
 border right(t=0,1)   {x=2;y=t;label=Gamma;}
@@ -56,9 +62,6 @@ Vh2 [gx,gy];
 int ing = 0;
 
 
-[gx,gy] = [borderforcex[ing],borderforcex[ing]];
-
-
 h = 1+0.1*x^2;
 real avg = 1/Th.area*int2d(Th)(h);
 
@@ -73,27 +76,23 @@ macro div(u,v) (dx(u)+dy(v))//
 problem elasticity([u,v],[w,s]) =
     int2d(Th)(2.*mu*h*e(u,v)'*e(w,s)
              +h*lambda*div(u,v)*div(w,s))
-    -int1d(Th,GammaN)(k'*gx*w+k'*gy*s)
+    -int1d(Th,ing)(gx*w+gy*s) //Interal of the borderforce in one region
     +on(GammaD,u=0,v=0);
 
-macro solvelas
-k = [1,0,0];
-elasticity;
-[u1,v1] = [u,v];
-k = [0,1,0];
-elasticity;
-[u2,v2] = [u,v];
-k = [0,0,1];
-elasticity;
-[u3,v3] = [u,v];//
+real compliance;
+
+macro solvelas //Solve the elasticity problem and calculate Aeueu and the compliance
+Aeueu = 0;
+compliance = 0;
+for(ing=1;ing<=ng;ing++){ //Solve the problem several times. Each time only one borderforce region is active.
+  [gx,gy] = [borderforcex[ing-1],borderforcey[ing-1]];
+  elasticity;
+  Aeueu = Aeueu + h^2*(2*mu*e(u,v)'*e(u,v)+lambda*div(u,v)*div(u,v)); //Simple sum of all the cases
+  compliance = compliance + int1d(Th,ing)(gx*u+gy*v);
+}
+//
 
 solvelas;
-
-//plot([u,v]);
-
-real compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
-                  +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
-                  +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
 
 cout << "Compliance: " << compliance << endl;
 
@@ -105,34 +104,18 @@ vals[0]=compliance;
 
 for(iter=1;iter<maxiter;iter++){
 
-  Aeueu = h^2*(2*mu*e(u1,v1)'*e(u1,v1)+lambda*div(u1,v1)*div(u1,v1));
-  Aeueu = Aeueu + h^2*(2*mu*e(u2,v2)'*e(u2,v2)+lambda*div(u2,v2)*div(u2,v2));
-  Aeueu = Aeueu + h^2*(2*mu*e(u3,v3)'*e(u3,v3)+lambda*div(u3,v3)*div(u3,v3));
+  solvelas;
 
   // upper bound lagmax
   lagmax = Aeueu[].max/hmin^2;
   newh = trunc(sqrt(1/lagmax*Aeueu),hmin,hmax);
-  /*vol = vol0-1;
-  while(vol<vol0){
-    lag = lagmax/2;
-    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
-    vol  = 1/Th.area*int2d(Th)(newh);
-    if(vol<vol0){lagmax=lagmax/2;}
-    else{break;}
-  }*/
+
   cout <<"Lagmax: " << lagmax << "  Min: " << newh[].min << "   Max: " << newh[].max << endl;
 
   // lower bound lagmin
   lagmin = Aeueu[].min/hmax^2;
   newh = trunc(sqrt(1/lagmin*Aeueu),hmin,hmax);
-  /*vol = vol0+1;
-  while(vol>vol0){
-    lag = lagmin*2;
-    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
-    vol  = 1/Th.area*int2d(Th)(newh);
-    if(vol>vol0){lagmin=lagmin*2;}
-    else{break;}
-  }*/
+
   cout <<"Lagmin: " << lagmin << " Min: " << newh[].min << "   Max: " << newh[].max << endl;
 
   // dichotomy
@@ -154,13 +137,9 @@ for(iter=1;iter<maxiter;iter++){
   //lagmin = Aeueu[].
 
   solvelas;
-  compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
-                    +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
-                    +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
   vals = [vals,compliance];
 
   cout << "Iteration #" << iter << " | Compliance " << compliance << "   Vol frac. " << vol << endl;
-  //exit(0);
 
   plot(h,fill=1,value=1,wait=0);
 
