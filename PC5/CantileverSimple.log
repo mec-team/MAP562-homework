@@ -1,0 +1,186 @@
+-- FreeFem++ v4.400003 (jeu. 12 d√©c. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : real R = 2;
+    2 : real r = 0.3;
+    3 : real TOL = 1e-6;
+    4 :
+    5 : real hmin = 0.1;
+    6 : real hmax = 1;
+    7 : real h0   = 0.5;
+    8 :
+    9 : real alpha = 1;
+   10 :
+   11 : int maxiter = 30;
+   12 : int iter;
+   13 : verbosity = 0;
+   14 :
+   15 : real lag,lagmin,lagmax;
+   16 : real vol0=h0,vol;
+   17 :
+   18 : int NN = 5;
+   19 :
+   20 : real E=2;                       // Young modulus
+   21 : real nu=0.3;                    // Poisson coefficient (between -1 and 1/2)
+   22 :
+   23 : real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+   24 : real mu=E/(2.*(1.+nu));
+   25 :
+   26 :
+   27 : int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100;
+   28 :
+   29 : border left(t=1,0)   {x=0;y=t;label=Gamma;}
+   30 : border right(t=0,1)   {x=2;y=t;label=Gamma;}
+   31 : border top(t=2,0) {x=t;y=1;label=Gamma;}
+   32 : border sd1(t=0,0.1)   {x=t;y=0;label=GammaD;}
+   33 : border s1(t=0.1,0.4)  {x=t;y=0;label=Gamma;}
+   34 : border s2(t=0.4,0.7)  {x=t;y=0;label=GammaN2;}
+   35 : border s3(t=0.7,0.85) {x=t;y=0;label=Gamma;}
+   36 : border s4(t=0.85,1.15){x=t;y=0;label=GammaN1;}
+   37 : border s5(t=1.15,1.3) {x=t;y=0;label=Gamma;}
+   38 : border s6(t=1.3,1.6)  {x=t;y=0;label=GammaN3;}
+   39 : border s7(t=1.6,1.9)    {x=t;y=0;label=Gamma;}
+   40 : border sd2(t=1.9,2)    {x=t;y=0;label=GammaD;}
+   41 :
+   42 : mesh Th = buildmesh(left(10*NN)+sd1(NN)+s1(3*NN)+s2(3*NN)+s3(1.5*NN)+s4(3*NN)+s5(1.5*NN)+s6(3*NN)+s7(3*NN)+sd2(Nê,…fN)+right(10*NN)+top(20*NN));
+   43 : plot(Th,wait=1);
+   44 :
+   45 : fespace Vh0(Th,P0);
+   46 : fespace Vh2(Th,[P2,P2]);
+   47 :
+   48 : Vh2 [u,v],[w,s],[u1,v1],[u2,v2],[u3,v3];
+   49 : Vh0 h,hold,density,newh;
+   50 : Vh0 Aeueu;
+   51 :
+   52 : Vh2 [gx1,gy1],[gx2,gy2],[gx3,gy3];
+   53 :
+   54 : [gx1,gy1] = [0,-1];
+   55 : [gx2,gy2] = [0,-1];
+   56 : [gx3,gy3] = [0,-1];
+   57 :
+   58 :
+   59 : h = 1+0.1*x^2;
+   60 : real avg = 1/Th.area*int2d(Th)(h);
+   61 :
+   62 : h = h-avg+h0;
+   63 :
+   64 : real sqrt2 = sqrt(2);
+   65 : int[int] k(3);
+   66 :
+   67 : macro e(u,v) [dx(u),dy(v),(dx(v)+dy(u))/sqrt2] )  //
+   68 : macro div(u,v) (dx(u)+dy(v)) )  //
+   69 :
+   70 : problem elasticity([u,v],[w,s]) =
+   71 :     int2d(Th)(2.*mu*h*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(w,s)  [dx(w),dy(s),(dx(s)+dy(w))/sqrt2]
+   72 :              +h*lambda*div(u,v)  (dx(u)+dy(v))*div(w,s)  (dx(w)+dy(s)))
+   73 :     -int1d(Th,GammaN1)((gx1*w+gy1*s))
+   74 :     -int1d(Th,GammaN2)((gx2*w+gy2*s))
+   75 :     -int1d(Th,GammaN3)((gx3*w+gy3*s))
+   76 :     +on(GammaD,u=0,v=0);
+   77 :
+   78 : elasticity;
+   79 :
+   80 : //plot([u,v]);
+   81 :
+   82 : real compliance = int1d(Th,GammaN1)(gx1*u+gy1*v)
+   83 :                   +int1d(Th,GammaN2)(gx2*u+gy2*v)
+   84 :                   +int1d(Th,GammaN3)(gx3*u+gy3*v);
+   85 :
+   86 : cout << "Compliance: " << compliance << endl;
+   87 :
+   88 : // Macro for truncation
+   89 : macro trunc(u,mm,MM) min(max(u,mm),MM) )  // END of macro
+   90 :
+   91 : real[int] vals(1);
+   92 : vals[0]=compliance;
+   93 :
+   94 : for(iter=1;iter<maxiter;iter++){
+   95 :
+   96 :   Aeueu = h^2*(2*mu*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]+lambda*ê,…fdiv(u,v)  (dx(u)+dy(v))*div(u,v)  (dx(u)+dy(v)));
+   97 :
+   98 :   // upper bound lagmax
+   99 :   lagmax = Aeueu[].max/hmin^2;
+  100 :   newh = trunc(sqrt(1/lagmax*Aeueu),hmin,hmax)  min(max(sqrt(1/lagmax*Aeueu),hmin),hmax);
+  101 :   /*vol = vol0-1;
+  102 :   while(vol<vol0){
+  103 :     lag = lagmax/2;
+  104 :     newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+  105 :     vol  = 1/Th.area*int2d(Th)(newh);
+  106 :     if(vol<vol0){lagmax=lagmax/2;}
+  107 :     else{break;}
+  108 :   }*/
+  109 :   cout <<"Lagmax: " << lagmax << "  Min: " << newh[].min << "   Max: " << newh[].max << endl;
+  110 :
+  111 :   // lower bound lagmin
+  112 :   lagmin = Aeueu[].min/hmax^2;
+  113 :   newh = trunc(sqrt(1/lagmin*Aeueu),hmin,hmax)  min(max(sqrt(1/lagmin*Aeueu),hmin),hmax);
+  114 :   /*vol = vol0+1;
+  115 :   while(vol>vol0){
+  116 :     lag = lagmin*2;
+  117 :     newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+  118 :     vol  = 1/Th.area*int2d(Th)(newh);
+  119 :     if(vol>vol0){lagmin=lagmin*2;}
+  120 :     else{break;}
+  121 :   }*/
+  122 :   cout <<"Lagmin: " << lagmin << " Min: " << newh[].min << "   Max: " << newh[].max << endl;
+  123 :
+  124 :   // dichotomy
+  125 :
+  126 :   while(abs(lagmax-lagmin)>TOL || abs(vol-vol0)>TOL){
+  127 :      lag = 0.5*(lagmax+lagmin);   // look at midpoint
+  128 :      newh =  trunc(sqrt(1/lag*Aeueu),hmin,hmax)  min(max(sqrt(1/lag*Aeueu),hmin),hmax);
+  129 :      vol = 1/Th.area*int2d(Th)(newh);
+  130 :      if(vol<vol0){
+  131 :         lagmax = lag;
+  132 :      }
+  133 :      else{
+  134 :         lagmin = lag;
+  135 :      }
+  136 :   }
+  137 :   hold = h;
+  138 :   h =  trunc(sqrt(1/lag*Aeueu),hmin,hmax)  min(max(sqrt(1/lag*Aeueu),hmin),hmax);
+  139 :   vol = 1/Th.area*int2d(Th)(h);
+  140 :   //lagmin = Aeueu[].
+  141 :
+  142 :   elasticity;
+  143 :   compliance = int1d(Th,GammaN1)(gx1*u+gy1*v)
+  144 :                     +int1d(Th,GammaN2)(gx2*u+gy2*v)
+  145 :                     +int1d(Th,GammaN3)(gx3*u+gy3*v);
+  146 :   vals = [vals,compliance];
+  147 :
+  148 :   cout << "Iteration #" << iter << " | Compliance " << compliance << "   Vol frac. " << vol << endl;
+  149 :   //exit(0);
+  150 :
+  151 :   plot(h,fill=1,value=1,wait=0);
+  152 :
+  153 :   // stopping criterion
+  154 :   Vh0 diff = abs(h-hold);
+  155 :   if(diff[].max<TOL){break;}
+  156 :
+  157 : }
+  158 :
+  159 : real[int] dis = 1:vals.n;
+  160 : plot(h,fill=1,value=1,cmm ="Final h", wait=1);
+  161 :
+  162 : plot([dis,vals],cmm="Evoluion of cost function");
+  163 :
+  164 : /*
+  165 : The results obtained in the single-load case and the multi-load case are different.
+  166 : And that's because our objective is different. In the single-load case we try to
+  167 : optimise the deformation caused by three forces applied simultaneously. In the
+  168 : multi-load case, we compromise among three cases where only one border force is
+  169 : active in each case. The objective function (the compliance) of these two cases
+  170 : are thus different. For the single-load case, we apply three forces to the system
+  171 : at the same time and calculate directly the compliance. For the multi-load case,
+  172 : we optimise the sum of the compliance of the three sub-cases (only one force in
+  173 : each one). But the compliance caused by each force cannot be linearly added to get
+  174 : the compliance of three forces, so we get different results for these two cases.
+  175 : */
+  176 :  sizestack + 1024 =9112  ( 8088 )
+ 
+Compliance: 1.77527
+Lagmax: 4949.34  Min: 0.1   Max: 0.1
+Lagmin: 2.24358e-07 Min: 1   Max: 1
+Iteration #1 | Compliance 1.30967   Vol frac. 0.5
+Lagmax: 5421.18  Min: 0.1   Max: 0.1
+Lagmin: 5.12072e-08 Min: 1   Max: 1
+ try getConsole F:\github-clone\MAP562-homework\PC5\CantileverSimple.edp

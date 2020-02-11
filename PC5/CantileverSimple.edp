@@ -1,3 +1,6 @@
+//Homework 5 by Yucheng BU and Huihui ZHOU
+//single-load case
+
 real R = 2;
 real r = 0.3;
 real TOL = 1e-6;
@@ -22,7 +25,6 @@ real nu=0.3;			// Poisson coefficient (between -1 and 1/2)
 
 real lambda=E*nu/((1.+nu)*(1.-2.*nu));
 real mu=E/(2.*(1.+nu));
-
 
 int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100;
 
@@ -55,7 +57,6 @@ Vh2 [gx1,gy1],[gx2,gy2],[gx3,gy3];
 [gx2,gy2] = [0,-1];
 [gx3,gy3] = [0,-1];
 
-
 h = 1+0.1*x^2;
 real avg = 1/Th.area*int2d(Th)(h);
 
@@ -77,8 +78,6 @@ problem elasticity([u,v],[w,s]) =
 
 elasticity;
 
-//plot([u,v]);
-
 real compliance = int1d(Th,GammaN1)(gx1*u+gy1*v)
                   +int1d(Th,GammaN2)(gx2*u+gy2*v)
                   +int1d(Th,GammaN3)(gx3*u+gy3*v);
@@ -98,27 +97,11 @@ for(iter=1;iter<maxiter;iter++){
   // upper bound lagmax
   lagmax = Aeueu[].max/hmin^2;
   newh = trunc(sqrt(1/lagmax*Aeueu),hmin,hmax);
-  /*vol = vol0-1;
-  while(vol<vol0){
-    lag = lagmax/2;
-    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
-    vol  = 1/Th.area*int2d(Th)(newh);
-    if(vol<vol0){lagmax=lagmax/2;}
-    else{break;}
-  }*/
   cout <<"Lagmax: " << lagmax << "  Min: " << newh[].min << "   Max: " << newh[].max << endl;
 
   // lower bound lagmin
   lagmin = Aeueu[].min/hmax^2;
   newh = trunc(sqrt(1/lagmin*Aeueu),hmin,hmax);
-  /*vol = vol0+1;
-  while(vol>vol0){
-    lag = lagmin*2;
-    newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
-    vol  = 1/Th.area*int2d(Th)(newh);
-    if(vol>vol0){lagmin=lagmin*2;}
-    else{break;}
-  }*/
   cout <<"Lagmin: " << lagmin << " Min: " << newh[].min << "   Max: " << newh[].max << endl;
 
   // dichotomy
