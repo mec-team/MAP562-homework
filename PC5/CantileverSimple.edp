@@ -1,3 +1,5 @@
+//Homework 3 Exercise 2.3 Case 3 forces by Yucheng BU and Huihui ZHOU
+
 real R = 2;
 real r = 0.3;
 real TOL = 1e-6;
