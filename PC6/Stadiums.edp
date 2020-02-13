@@ -1,9 +1,9 @@
-// MAP 562 
+// MAP 562
 // G. Allaire, B. Bogosel
 
 // Geometric optimization of a parametric hole
 
-real a=0.5,b=0.1,l=2.5;
+real a=0.5,b=0.3,l=2.5;
 real cx = 0,cy=0;
 int maxiter = 2;
 real maxstep = 0.01;
@@ -33,17 +33,16 @@ border right(t=-l,l){x=l;y=t;label=GammaN;}
 border top(t=l,-l){x=t;y=l;label=GammaN;}
 
 // Parametric boundary
-border inclusion(t=0,2*pi){
-   x = (1+a*cos(2*t)+b*cos(3*t))*cos(t);
-   y = (1+a*cos(2*t)+b*cos(3*t))*sin(t);
-   label = Gamma0;
-}
+border wleft(t=pi/2,3*pi/2){x=cx-a/2+b/2*cos(t);y=cy+b/2*sin(t);label=Gamma0;}
+border wbot(t=-a/2,a/2){x=cx+t;y=cy-b/2;label=Gamma0;}
+border wright(t=-pi/2,pi/2){x=cx+a/2+b/2*cos(t);y=cy+b/2*sin(t);label=Gamma0;}
+border wtop(t=a/2,-a/2){x=cx+t;y=cy+b/2;label=Gamma0;}
 
 plot(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +inclusion(Ni*(a+b)*pi*NN));
+                   +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
 
 mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +inclusion(-Ni*NN));
+                   +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
 
 plot(Th);
 
@@ -54,8 +53,8 @@ cout << "Area of omega     " << (2*l)^2-Th.area << endl;
 // The formula can be proved using polar coordinates: try it...
 real analyticArea = 2*pi*(0.5+0.25*a^2+0.25*b^2);
 cout << "Analytic formula  " << analyticArea << endl;
-// If you want to see closer results between the analytical and discrete formulas, increase the number of points on the boundary of omega... 
-// ==== 
+// If you want to see closer results between the analytical and discrete formulas, increase the number of points on the boundary of omega...
+// ====
 
 fespace Vh(Th,P1);
 fespace Vh0(Th,P0);
@@ -113,15 +112,15 @@ for(int i=1;i<maxiter;i++){
 
    a  = max(0.01,min(l-0.01,a));
    b  = max(0.01,min(l-0.01,b));
-   
+
    // Project on the area constraint...
    // Write the formula by hand and then implement it.
    // Check that it works by showing the area of the mesh at each iteration
 
-  
+
 
    Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +inclusion(-Ni*(a+b)*pi*NN));
+                   +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
 
 
    plot(Th,wait=1);
@@ -132,7 +131,7 @@ for(int i=1;i<maxiter;i++){
 
    if(compliance<valold){
        cout << "Accept" << endl;
-       cout << "Compliance: " << compliance << endl; 
+       cout << "Compliance: " << compliance << endl;
         grad = -Aeueu(ux,uy);
         step = min(maxstep,1.1*step);
         aold = a;
@@ -141,7 +140,7 @@ for(int i=1;i<maxiter;i++){
         cyold = cy;
         valold = compliance;
    }
-   else{ 
+   else{
         cout << " Reject" << endl;
         step = step*0.5;
         a = aold;b=bold;cx=cxold;cy=cyold;
@@ -150,5 +149,3 @@ for(int i=1;i<maxiter;i++){
 
 
 }
-
-
