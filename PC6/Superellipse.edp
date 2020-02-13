@@ -40,7 +40,8 @@ border wright(t=-pi/2,pi/2){x=cx+a/2+b/2*cos(t);y=cy+b/2*sin(t);label=Gamma0;}
 border wtop(t=a/2,-a/2){x=cx+t;y=cy+b/2;label=Gamma0;}
 
 macro projparams(a,b)
-      ratio = sqrt((0.25*b^2*pi+a*b)/fixedV);
+      mesh Thhole = buildmesh(wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
+      ratio = sqrt(Thhole.area/fixedV);
       a = a/ratio;
       b = b/ratio;//
 
@@ -118,9 +119,9 @@ for(int i=1;i<maxiter;i++){
    a  = a-step*deriva;
    b  = b-step*derivb;
 
-   // check to see if the stadium can fit into the square
-   b  = max(0.01,min(2*l-0.01,b));
-   a  = max(0.01,min(2*l-0.01-b,a));
+   // check to see if the ellipse can fit into the square
+   a  = max(0.01,min(l-0.01,a));
+   b  = max(0.01,min(l-0.01,b));
 
 
 
@@ -128,10 +129,10 @@ for(int i=1;i<maxiter;i++){
    projparams(a,b);
 
    // make sure that the center of the ellipse is compatible with the ellipse being interior to the square
-   cx = max(cx,-l+0.5*(a+b)+0.1);
-   cx = min(cx,l-0.5*(a+b)-0.1);
-   cy = max(cy,-l+0.5*b+0.1);
-   cy = min(cy,l-0.5*b-0.1);
+   cx = max(cx,-l+a+0.1);
+   cx = min(cx,l-a-0.1);
+   cy = max(cy,-l+b+0.1);
+   cy = min(cy,l-b-0.1);
 
 
 
