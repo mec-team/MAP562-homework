@@ -1,17 +1,16 @@
+// MAP 562 
 // G. Allaire, B. Bogosel
-// MAP 562 2019
 
-// Optimize the position and parameters of an ellipse so that the compliance is minimized
+// Geometric optimization of a parametric hole
 
-
-real a=0.5,b=1,l=2;
+real a=0.5,b=0.1,l=2.5;
 real cx = 0,cy=0;
-int maxiter = 200;
+int maxiter = 2;
 real maxstep = 0.01;
 
 real fixedV = 1;
 
-real step = 0.05;
+real step = 0.01;
 
 verbosity = 0;
 
@@ -24,7 +23,7 @@ real lambda=E*nu/((1.+nu)*(1.-2.*nu));
 real mu=E/(2.*(1.+nu));
 
 int NN = 10;
-int Ni = 2;
+int Ni = 10;
 
 int GammaD = 0,GammaN = 1,Gamma0=20;
 
@@ -33,23 +32,30 @@ border bot(t=-l,l){x=t;y=-l;label=GammaN;}
 border right(t=-l,l){x=l;y=t;label=GammaN;}
 border top(t=l,-l){x=t;y=l;label=GammaN;}
 
-border ellipse(t=0,2*pi){
-   x = a*cos(t)+cx;
-   y = b*sin(t)+cy;
+// Parametric boundary
+border inclusion(t=0,2*pi){
+   x = (1+a*cos(2*t)+b*cos(3*t))*cos(t);
+   y = (1+a*cos(2*t)+b*cos(3*t))*sin(t);
    label = Gamma0;
 }
 
 plot(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +ellipse(Ni*(a+b)*pi*NN),wait = 1);
-
-real ratio = a*b*pi/fixedV;
-   a = a/sqrt(ratio);
-   b = b/sqrt(ratio);
+                   +inclusion(Ni*(a+b)*pi*NN));
 
 mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +ellipse(-Ni*(a+b)*pi*NN));
+                   +inclusion(-Ni*NN));
 
-plot(Th,wait = 1);
+plot(Th);
+
+// Compute the area
+cout << "Area of the mesh  " << Th.area << endl;
+cout << "Area of omega     " << (2*l)^2-Th.area << endl;
+// Use the formula below to rescale to the desired area
+// The formula can be proved using polar coordinates: try it...
+real analyticArea = 2*pi*(0.5+0.25*a^2+0.25*b^2);
+cout << "Analytic formula  " << analyticArea << endl;
+// If you want to see closer results between the analytical and discrete formulas, increase the number of points on the boundary of omega... 
+// ==== 
 
 fespace Vh(Th,P1);
 fespace Vh0(Th,P0);
@@ -84,77 +90,49 @@ real valold = 1e100;
 real aold,bold,cxold,cyold;
 
 
-
 aold = a;
 bold = b;
 cxold = cx;
 cyold = cy;
 
 for(int i=1;i<maxiter;i++){
-   // derivatives with respect to the parameters of the problem
-   // note that only the vector field describing the boundary perturbation is needed in order to find these derivatives
+   // Compute angles in polar coordinates
+   Vh thetas = atan2(y,x);
+   plot(thetas,fill=1,wait=1,cmm="Compute the angles for the shape derivative");
 
-   // the center of the ellipse
-   real derivx = int1d(Th,Gamma0)(grad*N.x);
-   real derivy = int1d(Th,Gamma0)(grad*N.y);
-   // the parameters of the ellipse
-   real deriva = int1d(Th,Gamma0)(grad*(N.x*(x-cx)/a));
-   real derivb = int1d(Th,Gamma0)(grad*(N.y*(y-cy)/b));
+   // Compute here the derivatives with respect to a and b
+   // use the variable thetas defined above to have the angle in polar coordinates
+   real deriva = 0;
+   real derivb = 0;
 
-   real nxy = sqrt(derivx^2+derivy^2);
-   real nab = sqrt(deriva^2+derivb^2);
-
-   // normalize gradients since the difference is too big sometimes...
-   // note that this also gives a descent direction
-   derivx = derivx/nxy;
-   derivy = derivy/nxy;
-   deriva = deriva/nab;
-   derivb = derivb/nab;
-
-   cout << derivx << " " << derivy << endl;
    cout << deriva << " " << derivb << endl;
 
-   // Gradient descent step
-   cx = cx-step*derivx;
-   cy = cy-step*derivy;
 
    a  = a-step*deriva;
    b  = b-step*derivb;
 
-   // check to see if the ellipse can fit into the square
    a  = max(0.01,min(l-0.01,a));
    b  = max(0.01,min(l-0.01,b));
+   
+   // Project on the area constraint...
+   // Write the formula by hand and then implement it.
+   // Check that it works by showing the area of the mesh at each iteration
 
+  
 
-   // project on the area constraint
-   real ratio = a*b*pi/fixedV;
-   a = a/sqrt(ratio);
-   b = b/sqrt(ratio);
-
-   // make sure that the center of the ellipse is compatible with the ellipse being interior to the square
-   cx = max(cx,-l+a+0.1);
-   cx = min(cx,l-a-0.1);
-
-   //cout << cx << " " << cy << endl;
-   //cout << a << " " << b << endl;
-
-
-   // once everything is done, construct the new mesh
    Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +ellipse(-Ni*(a+b)*pi*NN));
+                   +inclusion(-Ni*(a+b)*pi*NN));
 
 
    plot(Th,wait=1);
 
-   // solve the problem and compute the compliance
    elasticity;
    real compliance = int2d(Th)(Aeueu(ux,uy));
 
 
    if(compliance<valold){
-       // If the compliance is decreased, compute the new gradient and advance
        cout << "Accept" << endl;
-       cout << "Compliance: " << compliance << endl;
+       cout << "Compliance: " << compliance << endl; 
         grad = -Aeueu(ux,uy);
         step = min(maxstep,1.1*step);
         aold = a;
@@ -163,7 +141,7 @@ for(int i=1;i<maxiter;i++){
         cyold = cy;
         valold = compliance;
    }
-   else{
+   else{ 
         cout << " Reject" << endl;
         step = step*0.5;
         a = aold;b=bold;cx=cxold;cy=cyold;
@@ -172,3 +150,5 @@ for(int i=1;i<maxiter;i++){
 
 
 }
+
+
