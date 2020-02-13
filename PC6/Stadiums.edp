@@ -7,6 +7,7 @@ real a=0.5,b=0.3,l=2.5;
 real cx = 0,cy=0;
 int maxiter = 2;
 real maxstep = 0.01;
+real ratio = 1;
 
 real fixedV = 1;
 
@@ -41,20 +42,17 @@ border wtop(t=a/2,-a/2){x=cx+t;y=cy+b/2;label=Gamma0;}
 plot(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
                    +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
 
+macro projparams(a,b)
+      ratio = sqrt((0.25*b^2*pi+a*b)/fixedV);
+      a = a/ratio;
+      b = b/ratio;//
+
+projparams(a,b);
+
 mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
                    +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
 
 plot(Th);
-
-// Compute the area
-cout << "Area of the mesh  " << Th.area << endl;
-cout << "Area of omega     " << (2*l)^2-Th.area << endl;
-// Use the formula below to rescale to the desired area
-// The formula can be proved using polar coordinates: try it...
-real analyticArea = 2*pi*(0.5+0.25*a^2+0.25*b^2);
-cout << "Analytic formula  " << analyticArea << endl;
-// If you want to see closer results between the analytical and discrete formulas, increase the number of points on the boundary of omega...
-// ====
 
 fespace Vh(Th,P1);
 fespace Vh0(Th,P0);
@@ -103,19 +101,40 @@ for(int i=1;i<maxiter;i++){
    // use the variable thetas defined above to have the angle in polar coordinates
    real deriva = 0;
    real derivb = 0;
+   // Compute here the derivatives with respect to cx and cy
+   real derivx = int1d(Th,Gamma0)(grad*N.x);
+   real derivy = int1d(Th,Gamma0)(grad*N.y);
 
-   cout << deriva << " " << derivb << endl;
+   real nxy = sqrt(derivx^2+derivy^2);
+   real nab = sqrt(deriva^2+derivb^2);
 
+   // normalize gradients since the difference is too big sometimes...
+   // note that this also gives a descent direction
+   derivx = derivx/nxy;
+   derivy = derivy/nxy;
+   deriva = deriva/nab;
+   derivb = derivb/nab;
 
+   // Gradient descent step
+   cx = cx-step*derivx;
+   cy = cy-step*derivy;
    a  = a-step*deriva;
    b  = b-step*derivb;
 
-   a  = max(0.01,min(l-0.01,a));
-   b  = max(0.01,min(l-0.01,b));
+   // check to see if the stadium can fit into the square
+   b  = max(0.01,min(2*l-0.01,b));
+   a  = max(0.01,min(2*l-0.01-b,a));
 
-   // Project on the area constraint...
-   // Write the formula by hand and then implement it.
-   // Check that it works by showing the area of the mesh at each iteration
+
+
+   // project on the area constraint
+   projparams(a,b);
+
+   // make sure that the center of the ellipse is compatible with the ellipse being interior to the square
+   cx = max(cx,-l+0.5*(a+b)+0.1);
+   cx = min(cx,l-0.5*(a+b)-0.1);
+   cy = max(cy,-l+0.5*b+0.1);
+   cy = min(cy,l-0.5*b-0.1);
 
 
 
