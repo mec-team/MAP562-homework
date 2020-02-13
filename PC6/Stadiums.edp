@@ -3,9 +3,9 @@
 
 // Geometric optimization of a parametric hole
 
-real a=0.5,b=0.3,l=2.5;
-real cx = 0,cy=0;
-int maxiter = 2;
+real a=0.7,b=0.7,l=2.5;
+real cx = 0.5,cy=0;
+int maxiter = 50;
 real maxstep = 0.01;
 real ratio = 1;
 
@@ -90,14 +90,11 @@ cxold = cx;
 cyold = cy;
 
 for(int i=1;i<maxiter;i++){
-   // Compute angles in polar coordinates
-   Vh thetas = atan2(y,x);
-   plot(thetas,fill=1,wait=1,cmm="Compute the angles for the shape derivative");
 
    // Compute here the derivatives with respect to a and b
    // use the variable thetas defined above to have the angle in polar coordinates
-   real deriva = int1d(Th,Gamma0)(grad*N'*[thetax,thetay]);
-   real derivb = int1d(Th,Gamma0)(grad*N'*[thetax,thetay]);
+   real deriva = int1d(Th,Gamma0)(grad*((x<a/2)*(-1/2)+(x>a/2)*(1/2))*N.x);
+   real derivb = int1d(Th,Gamma0)(grad*((x<a/2)*(x-cx+a/2)/b+(x>a/2)*(x-cx-a/2)/b)*N.x+((y==a/2)/2-(y==-a/2)/2+(-a/2<y<a/2)*(y-cy)/b)*N.y);
    // Compute here the derivatives with respect to cx and cy
    real derivx = int1d(Th,Gamma0)(grad*N.x);
    real derivy = int1d(Th,Gamma0)(grad*N.y);
@@ -136,10 +133,10 @@ for(int i=1;i<maxiter;i++){
 
 
    Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
+                   +wleft(-b/2*pi*NN)+wbot(-a*NN)+wright(-b/2*pi*NN)+wtop(-a*NN));
 
 
-   plot(Th,wait=1);
+   plot(Th,wait=0);
 
    elasticity;
    real compliance = int2d(Th)(Aeueu(ux,uy));
@@ -165,3 +162,4 @@ for(int i=1;i<maxiter;i++){
 
 
 }
+plot(Th,cmm="final",wait=1);
