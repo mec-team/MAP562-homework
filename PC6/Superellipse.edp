@@ -34,13 +34,14 @@ border right(t=-l,l){x=l;y=t;label=GammaN;}
 border top(t=l,-l){x=t;y=l;label=GammaN;}
 
 // Parametric boundary
-border wleft(t=pi/2,3*pi/2){x=cx-a/2+b/2*cos(t);y=cy+b/2*sin(t);label=Gamma0;}
-border wbot(t=-a/2,a/2){x=cx+t;y=cy-b/2;label=Gamma0;}
-border wright(t=-pi/2,pi/2){x=cx+a/2+b/2*cos(t);y=cy+b/2*sin(t);label=Gamma0;}
-border wtop(t=a/2,-a/2){x=cx+t;y=cy+b/2;label=Gamma0;}
-
+border superellipse(t=0,2*pi){
+   x = a*((cos(t)>0)-(cos(t)>0))*sqrt(abs(cos(t)))+cx;
+   y = b*((sin(t)>0)-(sin(t)>0))*sqrt(abs(sin(t)))+cy;
+   label = Gamma0;
+}
+border axe(t=-a,a){x=t;y=0;label=100;}
 macro projparams(a,b)
-      mesh Thhole = buildmesh(wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
+      mesh Thhole = buildmesh(superellipse(Ni*(a+b)*pi*NN));
       ratio = sqrt(Thhole.area/fixedV);
       a = a/ratio;
       b = b/ratio;//
@@ -48,7 +49,7 @@ macro projparams(a,b)
 projparams(a,b);
 
 mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +wleft(-b/2*pi*NN)+wbot(-a*NN)+wright(-b/2*pi*NN)+wtop(-a*NN));
+                   +superellipse(Ni*(a+b)*pi*NN));
 
 plot(Th);
 
@@ -96,12 +97,12 @@ for(int i=1;i<maxiter;i++){
    plot(thetas,fill=1,wait=1,cmm="Compute the angles for the shape derivative");
 
    // Compute here the derivatives with respect to a and b
-   // use the variable thetas defined above to have the angle in polar coordinates
-   real deriva = int1d(Th,Gamma0)(grad*N'*[thetax,thetay]);
-   real derivb = int1d(Th,Gamma0)(grad*N'*[thetax,thetay]);
-   // Compute here the derivatives with respect to cx and cy
+   // the center of the ellipse
    real derivx = int1d(Th,Gamma0)(grad*N.x);
    real derivy = int1d(Th,Gamma0)(grad*N.y);
+   // the parameters of the ellipse
+   real deriva = int1d(Th,Gamma0)(grad*(N.x*(x-cx)/a));
+   real derivb = int1d(Th,Gamma0)(grad*(N.y*(y-cy)/b));
 
    real nxy = sqrt(derivx^2+derivy^2);
    real nab = sqrt(deriva^2+derivb^2);
@@ -137,7 +138,7 @@ for(int i=1;i<maxiter;i++){
 
 
    Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
-                   +wleft(b/2*pi*NN)+wbot(a*NN)+wright(b/2*pi*NN)+wtop(a*NN));
+                   +superellipse(Ni*(a+b)*pi*NN));
 
 
    plot(Th,wait=1);
