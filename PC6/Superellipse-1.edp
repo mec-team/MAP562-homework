@@ -1,14 +1,16 @@
-//Homework 6 by Yucheng BU and Huihui ZHOU - Superellipse
+// MAP 562
+// G. Allaire, B. Bogosel
 
 // Geometric optimization of a parametric hole
 
-real a=0.5,b=1,l=2;
+real a=0.5,b=1,l=2.5;
 real cx = 0,cy=0.5;
 int maxiter = 200;
 real maxstep = 0.01;
-real ratio = 1;
-
+//real ratio = 1;
+int integN = 10;
 real areah = 0;
+
 real fixedV = 1;
 
 real step = 0.05;
@@ -24,7 +26,7 @@ real lambda=E*nu/((1.+nu)*(1.-2.*nu));
 real mu=E/(2.*(1.+nu));
 
 int NN = 10;
-int Ni = 1;
+int Ni = 2;
 
 int GammaD = 0,GammaN = 1,Gamma0=20;
 
@@ -41,20 +43,14 @@ border superellipse(t=0,2*pi){
 }
 
 
-int integN = 100; //discretisation of the numeric integration of the area of the superellipse
-macro projparams(a,b)
-      areah = 0;
 
-      /*numeric integration of the area of the superellipse*/
-      for(int integi=1;integi<=integN;integi++){
-        areah = areah + b*sqrt(sqrt(1-(integi/integN*a)^4/a^4))*a/integN;
-      };
-      /* project on the area constraint*/
-      ratio = sqrt(areah*4/fixedV);
-      a = a/ratio;
-      b = b/ratio;//
+real ratiogamma=0.9064024770554788^2 / (sqrt(pi)*0.5);
 
-projparams(a,b);
+
+real ratio = 4*ratiogamma*a*b/fixedV;
+   a = a/sqrt(ratio);
+   b = b/sqrt(ratio);
+
 
 mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
                    +superellipse(-Ni*(a+b)*pi*NN));
@@ -132,7 +128,9 @@ for(int i=1;i<maxiter;i++){
 
 
    // project on the area constraint
-   projparams(a,b);
+   real ratio = 4*ratiogamma*a*b/fixedV;
+      a = a/sqrt(ratio);
+      b = b/sqrt(ratio);
 
    // make sure that the center of the ellipse is compatible with the ellipse being interior to the square
    cx = max(cx,-l+a+0.1);
@@ -173,11 +171,3 @@ for(int i=1;i<maxiter;i++){
 
 }
 plot(Th,cmm="final",wait=1);
-
-/*
-We can see that the algorithm optimises the position and the shape of the hole
-through steps. It is remarkable that the hole has the tendence of getting out of
-the square domain. It is reasonnable because if there's no hole, the deformation
-and the compliance will sure be smaller. But this tentence is well restrained by
-our restriction of the position of the whole.
-*/
