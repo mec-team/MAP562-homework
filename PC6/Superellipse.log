@@ -1,0 +1,550 @@
+-- FreeFem++ v4.400003 (jeu. 12 dÃ©c. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : //Homework 6 by Yucheng BU and Huihui ZHOU - Superellipse
+    2 :
+    3 : // Geometric optimization of a parametric hole
+    4 :
+    5 : real a=0.5,b=1,l=2;
+    6 : real cx = 0,cy=0.5;
+    7 : int maxiter = 200;
+    8 : real maxstep = 0.01;
+    9 : real ratio = 1;
+   10 :
+   11 : real areah = 0;
+   12 : real fixedV = 1;
+   13 :
+   14 : real step = 0.05;
+   15 :
+   16 : verbosity = 0;
+   17 :
+   18 : real alpha =0.5;
+   19 :
+   20 : real E=1;                       // Young modulus
+   21 : real nu=0.3;                    // Poisson coefficient (between -1 and 1/2)
+   22 :
+   23 : real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+   24 : real mu=E/(2.*(1.+nu));
+   25 :
+   26 : int NN = 10;
+   27 : int Ni = 1;
+   28 :
+   29 : int GammaD = 0,GammaN = 1,Gamma0=20;
+   30 :
+   31 : border left(t=l,-l){x=-l;y=t;label=GammaD;}
+   32 : border bot(t=-l,l){x=t;y=-l;label=GammaN;}
+   33 : border right(t=-l,l){x=l;y=t;label=GammaN;}
+   34 : border top(t=l,-l){x=t;y=l;label=GammaN;}
+   35 :
+   36 : // Parametric boundary
+   37 : border superellipse(t=0,2*pi){
+   38 :    x = a*((cos(t)>0)-(cos(t)<0))*sqrt(abs(cos(t)))+cx;
+   39 :    y = b*((sin(t)>0)-(sin(t)<0))*sqrt(abs(sin(t)))+cy;
+   40 :    label = Gamma0;
+   41 : }
+   42 :
+   43 :
+   44 : int integN = 100; //discretisation of the numeric integration of the area of the superellipse
+   55 #       b = b/ratio; )  //*4/fixedV);aint*/tegi/integN*a)^4/a^4))*a/integN;
+   56 :
+   57 : projparams(a,b)
+   46 @
+   47 @
+   48 @       /*numeric integration of the area of the superellipse*/
+   49 @
+   50 @
+   51 @
+   52 @       /* project on the area constraint*/
+   53 @
+   54 @
+   55 @
+   46 @       areah = 0;
+   47 @
+   48 @       /*numeric integration of the area of the superellipse*/
+   49 @       for(int integi=1;integi<=integN;integi++){
+   50 @         areah = areah + b*sqrt(sqrt(1-(integi/integN*a)^4/a^4))*a/integN;
+   51 @       };
+   52 @       /* project on the area constraint*/
+   53 @       ratio = sqrt(areah*4/fixedV);
+   54 @       a = a/ratio;
+   55 @       b = b/ratio;;
+   58 :
+   59 : mesh Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
+   60 :                    +superellipse(-Ni*(a+b)*pi*NN));
+   61 :
+   62 : plot(Th);
+   63 :
+   64 : fespace Vh(Th,P1);
+   65 : fespace Vh0(Th,P0);
+   66 :
+   67 : Vh ux,uy,vx,vy;
+   68 :
+   69 :
+   70 : real sqrt2 = sqrt(2);
+   71 : macro e(ux,uy) [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2] )  //
+   72 : macro div(ux,uy) (dx(ux)+dy(uy)) )  //
+   73 : macro Aeueu(ux,uy) (2*mu*e(ux,uy)'*e(ux,uy)+lambda*div(ux,uy)*div(ux,uy)) )  //
+   74 :
+   75 : problem elasticity([ux,uy],[vx,vy],solver=sparsesolver) =
+   76 :   int2d(Th)(2*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(vx,vy)  [dx(vx),dy(vy),(dx(vy)+dy(vx))/sqrt2å]+lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(vx,vy)  (dx(vx)+dy(vy)))
+   77 :  -int1d(Th,GammaN)(N.x*vx+alpha*N.y*vy)
+   78 :  +on(GammaD,ux=0,uy=0);
+   79 :
+   80 : elasticity;
+   81 : plot([ux,uy]);
+   82 :
+   83 : real compliance = int2d(Th)(Aeueu(ux,uy)  (2*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(ux,uy)  [dx(uåx),dy(uy),(dx(uy)+dy(ux))/sqrt2]+lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(ux,uy)  (dx(ux)+dy(uy))));
+   84 : cout << "Compliance: " << compliance << endl;
+   85 :
+   86 : real compliance2 = int1d(Th,GammaN)(N.x*ux+alpha*N.y*uy);
+   87 : cout << "Compliance: " << compliance2 << endl;
+   88 :
+   89 : Vh0 grad;
+   90 : grad = -Aeueu(ux,uy)  (2*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dyå(ux))/sqrt2]+lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(ux,uy)  (dx(ux)+dy(uy)));
+   91 :
+   92 : real valold = 1e100;
+   93 :
+   94 : real aold,bold,cxold,cyold;
+   95 :
+   96 :
+   97 : aold = a;
+   98 : bold = b;
+   99 : cxold = cx;
+  100 : cyold = cy;
+  101 :
+  102 : for(int i=1;i<maxiter;i++){
+  103 :
+  104 :    // Compute here the derivatives with respect to a and b
+  105 :    // the center of the ellipse
+  106 :    real derivx = int1d(Th,Gamma0)(grad*N.x);
+  107 :    real derivy = int1d(Th,Gamma0)(grad*N.y);
+  108 :    // the parameters of the ellipse
+  109 :    real deriva = int1d(Th,Gamma0)(grad*(N.x*(x-cx)/a));
+  110 :    real derivb = int1d(Th,Gamma0)(grad*(N.y*(y-cy)/b));
+  111 :
+  112 :    real nxy = sqrt(derivx^2+derivy^2);
+  113 :    real nab = sqrt(deriva^2+derivb^2);
+  114 :
+  115 :    // normalize gradients since the difference is too big sometimes...
+  116 :    // note that this also gives a descent direction
+  117 :    derivx = derivx/nxy;
+  118 :    derivy = derivy/nxy;
+  119 :    deriva = deriva/nab;
+  120 :    derivb = derivb/nab;
+  121 :
+  122 :    // Gradient descent step
+  123 :    cx = cx-step*derivx;
+  124 :    cy = cy-step*derivy;
+  125 :    a  = a-step*deriva;
+  126 :    b  = b-step*derivb;
+  127 :
+  128 :    // check to see if the ellipse can fit into the square
+  129 :    a  = max(0.01,min(l-0.01,a));
+  130 :    b  = max(0.01,min(l-0.01,b));
+  131 :
+  132 :
+  133 :
+  134 :    // project on the area constraint
+  135 :    projparams(a,b)
+   46 @
+   47 @
+   48 @       /*numeric integration of the area of the superellipse*/
+   49 @
+   50 @
+   51 @
+   52 @       /* project on the area constraint*/
+   53 @
+   54 @
+   55 @
+   46 @       areah = 0;
+   47 @
+   48 @       /*numeric integration of the area of the superellipse*/
+   49 @       for(int integi=1;integi<=integN;integi++){
+   50 @         areah = areah + b*sqrt(sqrt(1-(integi/integN*a)^4/a^4))*a/integN;
+   51 @       };
+   52 @       /* project on the area constraint*/
+   53 @       ratio = sqrt(areah*4/fixedV);
+   54 @       a = a/ratio;
+   55 @       b = b/ratio;;
+  136 :
+  137 :    // make sure that the center of the ellipse is compatible with the ellipse being interior to the square
+  138 :    cx = max(cx,-l+a+0.1);
+  139 :    cx = min(cx,l-a-0.1);
+  140 :    cy = max(cy,-l+b+0.1);
+  141 :    cy = min(cy,l-b-0.1);
+  142 :
+  143 :
+  144 :
+  145 :    Th = buildmesh(left(2*NN)+bot(2*NN)+right(2*NN)+top(2*NN)
+  146 :                    +superellipse(-Ni*(a+b)*pi*NN));
+  147 :
+  148 :
+  149 :    plot(Th,wait=0);
+  150 :
+  151 :    elasticity;
+  152 :    real compliance = int2d(Th)(Aeueu(ux,uy)  (2*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(ux,uy)  [dåx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]+lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(ux,uy)  (dx(ux)+dy(uy))));
+  153 :
+  154 :
+  155 :    if(compliance<valold){
+  156 :        cout << "Accept" << endl;
+  157 :        cout << "Compliance: " << compliance << endl;
+  158 :         grad = -Aeueu(ux,uy)  (2*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(ux,uy)  [dx(ux),dy(uy),(dåx(uy)+dy(ux))/sqrt2]+lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(ux,uy)  (dx(ux)+dy(uy)));
+  159 :         step = min(maxstep,1.1*step);
+  160 :         aold = a;
+  161 :         bold = b;
+  162 :         cxold = cx;
+  163 :         cyold = cy;
+  164 :         valold = compliance;
+  165 :    }
+  166 :    else{
+  167 :         cout << " Reject" << endl;
+  168 :         step = step*0.5;
+  169 :         a = aold;b=bold;cx=cxold;cy=cyold;
+  170 :    }
+  171 :
+  172 :
+  173 :
+  174 : }
+  175 : plot(Th,cmm="final",wait=1);
+  176 :
+  177 : /*
+  178 : We can see that the algorithm optimises the position and the shape of the hole
+  179 : through steps. It is remarkable that the hole has the tendence of getting out of
+  180 : the square domain. It is reasonnable because if there's no hole, the deformation
+  181 : and the compliance will sure be smaller. But this tentence is well restrained by
+  182 : our restriction of the position of the whole.
+  183 : */
+  184 :  sizestack + 1024 =3456  ( 2432 )
+ 
+Compliance: 16.1208
+Compliance: 16.1208
+Accept
+Compliance: 15.9769
+Accept
+Compliance: 15.9465
+Accept
+Compliance: 15.9189
+Accept
+Compliance: 15.8896
+Accept
+Compliance: 15.864
+Accept
+Compliance: 15.8388
+Accept
+Compliance: 15.8089
+Accept
+Compliance: 15.7835
+Accept
+Compliance: 15.7569
+Accept
+Compliance: 15.7301
+Accept
+Compliance: 15.706
+Accept
+Compliance: 15.6732
+Accept
+Compliance: 15.6447
+Accept
+Compliance: 15.6213
+Accept
+Compliance: 15.592
+Accept
+Compliance: 15.5711
+Accept
+Compliance: 15.5449
+Accept
+Compliance: 15.5223
+Accept
+Compliance: 15.4975
+Accept
+Compliance: 15.4726
+Accept
+Compliance: 15.4465
+Accept
+Compliance: 15.4231
+Accept
+Compliance: 15.3965
+Accept
+Compliance: 15.3736
+Accept
+Compliance: 15.3507
+Accept
+Compliance: 15.3293
+Accept
+Compliance: 15.3043
+Accept
+Compliance: 15.281
+Accept
+Compliance: 15.2598
+Accept
+Compliance: 15.235
+Accept
+Compliance: 15.214
+Accept
+Compliance: 15.192
+Accept
+Compliance: 15.1651
+Accept
+Compliance: 15.1442
+Accept
+Compliance: 15.1231
+Accept
+Compliance: 15.1011
+Accept
+Compliance: 15.0779
+Accept
+Compliance: 15.0574
+Accept
+Compliance: 15.0361
+Accept
+Compliance: 15.0117
+Accept
+Compliance: 14.9937
+Accept
+Compliance: 14.9694
+Accept
+Compliance: 14.9499
+Accept
+Compliance: 14.9284
+Accept
+Compliance: 14.9083
+Accept
+Compliance: 14.8837
+Accept
+Compliance: 14.8639
+Accept
+Compliance: 14.8433
+Accept
+Compliance: 14.8207
+Accept
+Compliance: 14.8005
+Accept
+Compliance: 14.7819
+Accept
+Compliance: 14.7604
+Accept
+Compliance: 14.7412
+Accept
+Compliance: 14.7206
+Accept
+Compliance: 14.7018
+Accept
+Compliance: 14.6822
+Accept
+Compliance: 14.6635
+Accept
+Compliance: 14.6448
+Accept
+Compliance: 14.6243
+Accept
+Compliance: 14.6067
+Accept
+Compliance: 14.588
+Accept
+Compliance: 14.5686
+Accept
+Compliance: 14.551
+Accept
+Compliance: 14.5332
+Accept
+Compliance: 14.5138
+Accept
+Compliance: 14.4963
+Accept
+Compliance: 14.4772
+Accept
+Compliance: 14.4614
+Accept
+Compliance: 14.4433
+Accept
+Compliance: 14.4252
+Accept
+Compliance: 14.4082
+Accept
+Compliance: 14.3899
+Accept
+Compliance: 14.3754
+Accept
+Compliance: 14.3579
+Accept
+Compliance: 14.3402
+Accept
+Compliance: 14.3239
+Accept
+Compliance: 14.3098
+Accept
+Compliance: 14.2932
+Accept
+Compliance: 14.2742
+Accept
+Compliance: 14.2573
+Accept
+Compliance: 14.2435
+Accept
+Compliance: 14.2257
+Accept
+Compliance: 14.2117
+Accept
+Compliance: 14.1973
+Accept
+Compliance: 14.1829
+Accept
+Compliance: 14.1657
+Accept
+Compliance: 14.151
+Accept
+Compliance: 14.1352
+Accept
+Compliance: 14.1205
+Accept
+Compliance: 14.1055
+Accept
+Compliance: 14.0948
+Accept
+Compliance: 14.0794
+Accept
+Compliance: 14.0641
+Accept
+Compliance: 14.0509
+Accept
+Compliance: 14.0371
+Accept
+Compliance: 14.0236
+Accept
+Compliance: 14.0104
+Accept
+Compliance: 13.9946
+Accept
+Compliance: 13.9838
+Accept
+Compliance: 13.9701
+Accept
+Compliance: 13.9575
+Accept
+Compliance: 13.9453
+Accept
+Compliance: 13.9305
+Accept
+Compliance: 13.9214
+Accept
+Compliance: 13.9089
+Accept
+Compliance: 13.8988
+Accept
+Compliance: 13.8857
+Accept
+Compliance: 13.8746
+Accept
+Compliance: 13.8623
+Accept
+Compliance: 13.8516
+Accept
+Compliance: 13.8394
+Accept
+Compliance: 13.83
+Accept
+Compliance: 13.8164
+Accept
+Compliance: 13.807
+Accept
+Compliance: 13.796
+Accept
+Compliance: 13.7867
+Accept
+Compliance: 13.7727
+Accept
+Compliance: 13.7599
+Accept
+Compliance: 13.7517
+Accept
+Compliance: 13.7432
+Accept
+Compliance: 13.7351
+Accept
+Compliance: 13.7229
+Accept
+Compliance: 13.7114
+Accept
+Compliance: 13.6976
+Accept
+Compliance: 13.691
+Accept
+Compliance: 13.6891
+ Reject
+ Reject
+ Reject
+Accept
+Compliance: 13.6889
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+Accept
+Compliance: 13.6888
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+Accept
+Compliance: 13.6888
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+Accept
+Compliance: 13.6888
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+Accept
+Compliance: 13.6888
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+ Reject
+^C try getConsole D:\Documents\X\3A\P2\MAP562 Structure Optimisation\Homework\MAP562-homework\PC6\Superellipse.edp
