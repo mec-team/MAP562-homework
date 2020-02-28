@@ -1,0 +1,218 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : real R = 2;
+    2 : real r = 0.3;
+    3 : real TOL = 1e-6;
+    4 :
+    5 : real hmin = 0.1;
+    6 : real hmax = 1;
+    7 : real h0   = 0.5;
+    8 :
+    9 : real alpha = 1;
+   10 :
+   11 : int maxiter = 30;
+   12 : int iter;
+   13 : verbosity = 0;
+   14 :
+   15 : real lag,lagmin,lagmax;
+   16 : real vol0=h0,vol;
+   17 :
+   18 : int NN = 5;
+   19 :
+   20 : real E=2;                       // Young modulus
+   21 : real nu=0.3;                    // Poisson coefficient (between -1 and 1/2)
+   22 :
+   23 : real lambda=E*nu/((1.+nu)*(1.-2.*nu));
+   24 : real mu=E/(2.*(1.+nu));
+   25 :
+   26 :
+   27 : int GammaD = 0,GammaN1 = 1,GammaN2 = 2,GammaN3 = 3,Gamma = 100;
+   28 :
+   29 : border left(t=1,0)   {x=0;y=t;label=Gamma;}
+   30 : border right(t=0,1)   {x=2;y=t;label=Gamma;}
+   31 : border top(t=2,0) {x=t;y=1;label=Gamma;}
+   32 : border sd1(t=0,0.1)   {x=t;y=0;label=GammaD;}
+   33 : border s1(t=0.1,0.4)  {x=t;y=0;label=Gamma;}
+   34 : border s2(t=0.4,0.7)  {x=t;y=0;label=GammaN2;}
+   35 : border s3(t=0.7,0.85) {x=t;y=0;label=Gamma;}
+   36 : border s4(t=0.85,1.15){x=t;y=0;label=GammaN1;}
+   37 : border s5(t=1.15,1.3) {x=t;y=0;label=Gamma;}
+   38 : border s6(t=1.3,1.6)  {x=t;y=0;label=GammaN3;}
+   39 : border s7(t=1.6,1.9)    {x=t;y=0;label=Gamma;}
+   40 : border sd2(t=1.9,2)    {x=t;y=0;label=GammaD;}
+   41 :
+   42 : mesh Th = buildmesh(left(10*NN)+sd1(NN)+s1(3*NN)+s2(3*NN)+s3(1.5*NN)+s4(3*NN)+s5(1.5*NN)+s6(3*NN)+s7(3*NN)+sd2(NN)+right(10*NN)+top(20*NN));
+   43 : plot(Th,wait=1);
+   44 :
+   45 : fespace Vh0(Th,P0);
+   46 : fespace Vh2(Th,[P2,P2]);
+   47 :
+   48 : Vh2 [u,v],[w,s],[u1,v1],[u2,v2],[u3,v3];
+   49 : Vh0 h,hold,density,newh;
+   50 : Vh0 Aeueu;
+   51 :
+   52 : Vh2 [gx1,gy1],[gx2,gy2],[gx3,gy3];
+   53 :
+   54 : [gx1,gy1] = [0,-1];
+   55 : [gx2,gy2] = [0,-1];
+   56 : [gx3,gy3] = [0,-1];
+   57 :
+   58 :
+   59 : h = 1+0.1*x^2;
+   60 : real avg = 1/Th.area*int2d(Th)(h);
+   61 :
+   62 : h = h-avg+h0;
+   63 :
+   64 : real sqrt2 = sqrt(2);
+   65 : int[int] k(3);
+   66 :
+   67 : macro e(u,v) [dx(u),dy(v),(dx(v)+dy(u))/sqrt2] )  //
+   68 : macro div(u,v) (dx(u)+dy(v)) )  //
+   69 :
+   70 : problem elasticity([u,v],[w,s]) =
+   71 :     int2d(Th)(2.*mu*h*e(u,v)  [dx(u),dy(v),(dx(v)+dy(u))/sqrt2]'*e(w,s)  [dx(w),dy(s),(dx(s)+dy(w))/sqrt2]
+   72 :              +h*lambda*div(u,v)  (dx(u)+dy(v))*div(w,s)  (dx(w)+dy(s)))
+   73 :     -int1d(Th,GammaN1)(k[0]*(gx1*w+gy1*s))
+   74 :     -int1d(Th,GammaN2)(k[1]*(gx2*w+gy2*s))
+   75 :     -int1d(Th,GammaN3)(k[2]*(gx3*w+gy3*s))
+   76 :     +on(GammaD,u=0,v=0);
+   77 :
+   78 : macro solvelas
+   79 : k = [1,0,0];
+   80 # elasticity;
+   81 # [u1,v1] = [u,v];
+   82 # k = [0,1,0];
+   83 # elasticity;
+   84 # [u2,v2] = [u,v];
+   85 # k = [0,0,1];
+   86 # elasticity;
+   87 # [u3,v3] = [u,v];//
+   88 :
+   89 : solvelas
+   80 @
+   81 @
+   82 @
+   83 @
+   84 @
+   85 @
+   86 @
+   87 @   k = [1,0,0];
+   80 @ elasticity;
+   81 @ [u1,v1] = [u,v];
+   82 @ k = [0,1,0];
+   83 @ elasticity;
+   84 @ [u2,v2] = [u,v];
+   85 @ k = [0,0,1];
+   86 @ elasticity;
+   87 @ [u3,v3] = [u,v];;
+   90 :
+   91 : //plot([u,v]);
+   92 :
+   93 : real compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
+   94 :                   +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
+   95 :                   +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
+   96 :
+   97 : cout << "Compliance: " << compliance << endl;
+   98 :
+   99 : // Macro for truncation
+  100 : macro trunc(u,mm,MM) min(max(u,mm),MM) )  // END of macro
+  101 :
+  102 : real[int] vals(1);
+  103 : vals[0]=compliance;
+  104 :
+  105 : for(iter=1;iter<maxiter;iter++){
+  106 :
+  107 :   Aeueu = h^2*(2*mu*e(u1,v1)  [dx(u1),dy(v1),(dx(v1)+dy(u1))/sqrt2]'*e(u1,v1)  [dx(u1),dy(v1),(dx(v1)+dy(u1))/sqrt2]+lambda*div(u1,v1)  (dx(u1)+dy(v1))*div(u1,v1)  (dx(u1)+dy(v1)));
+  108 :   Aeueu = Aeueu + h^2*(2*mu*e(u2,v2)  [dx(u2),dy(v2),(dx(v2)+dy(u2))/sqrt2]'*e(u2,v2)  [dx(u2),dy(v2),(dx(v2)+dy(u2))/sqrt2]+lambda*div(u2,v2)  (dx(u2)+dy(v2))*div(u2,v2)  (dx(u2)+dy(v2)));
+  109 :   Aeueu = Aeueu + h^2*(2*mu*e(u3,v3)  [dx(u3),dy(v3),(dx(v3)+dy(u3))/sqrt2]'*e(u3,v3)  [dx(u3),dy(v3),(dx(v3)+dy(u3))/sqrt2]+lambda*div(u3,v3)  (dx(u3)+dy(v3))*div(u3,v3)  (dx(u3)+dy(v3)));
+  110 :
+  111 :   // upper bound lagmax
+  112 :   lagmax = Aeueu[].max/hmin^2;
+  113 :   newh = trunc(sqrt(1/lagmax*Aeueu),hmin,hmax)  min(max(sqrt(1/lagmax*Aeueu),hmin),hmax);
+  114 :   /*vol = vol0-1;
+  115 :   while(vol<vol0){
+  116 :     lag = lagmax/2;
+  117 :     newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+  118 :     vol  = 1/Th.area*int2d(Th)(newh);
+  119 :     if(vol<vol0){lagmax=lagmax/2;}
+  120 :     else{break;}
+  121 :   }*/
+  122 :   cout <<"Lagmax: " << lagmax << "  Min: " << newh[].min << "   Max: " << newh[].max << endl;
+  123 :
+  124 :   // lower bound lagmin
+  125 :   lagmin = Aeueu[].min/hmax^2;
+  126 :   newh = trunc(sqrt(1/lagmin*Aeueu),hmin,hmax)  min(max(sqrt(1/lagmin*Aeueu),hmin),hmax);
+  127 :   /*vol = vol0+1;
+  128 :   while(vol>vol0){
+  129 :     lag = lagmin*2;
+  130 :     newh = trunc(sqrt(1/lag*Aeueu),hmin,hmax);
+  131 :     vol  = 1/Th.area*int2d(Th)(newh);
+  132 :     if(vol>vol0){lagmin=lagmin*2;}
+  133 :     else{break;}
+  134 :   }*/
+  135 :   cout <<"Lagmin: " << lagmin << " Min: " << newh[].min << "   Max: " << newh[].max << endl;
+  136 :
+  137 :   // dichotomy
+  138 :
+  139 :   while(abs(lagmax-lagmin)>TOL || abs(vol-vol0)>TOL){
+  140 :      lag = 0.5*(lagmax+lagmin);   // look at midpoint
+  141 :      newh =  trunc(sqrt(1/lag*Aeueu),hmin,hmax)  min(max(sqrt(1/lag*Aeueu),hmin),hmax);
+  142 :      vol = 1/Th.area*int2d(Th)(newh);
+  143 :      if(vol<vol0){
+  144 :         lagmax = lag;
+  145 :      }
+  146 :      else{
+  147 :         lagmin = lag;
+  148 :      }
+  149 :   }
+  150 :   hold = h;
+  151 :   h =  trunc(sqrt(1/lag*Aeueu),hmin,hmax)  min(max(sqrt(1/lag*Aeueu),hmin),hmax);
+  152 :   vol = 1/Th.area*int2d(Th)(h);
+  153 :   //lagmin = Aeueu[].
+  154 :
+  155 :   solvelas
+   80 @
+   81 @
+   82 @
+   83 @
+   84 @
+   85 @
+   86 @
+   87 @   k = [1,0,0];
+   80 @ elasticity;
+   81 @ [u1,v1] = [u,v];
+   82 @ k = [0,1,0];
+   83 @ elasticity;
+   84 @ [u2,v2] = [u,v];
+   85 @ k = [0,0,1];
+   86 @ elasticity;
+   87 @ [u3,v3] = [u,v];;
+  156 :   compliance = int1d(Th,GammaN1)(gx1*u1+gy1*v1)
+  157 :                     +int1d(Th,GammaN2)(gx2*u2+gy2*v2)
+  158 :                     +int1d(Th,GammaN3)(gx3*u3+gy3*v3);
+  159 :   vals = [vals,compliance];
+  160 :
+  161 :   cout << "Iteration #" << iter << " | Compliance " << compliance << "   Vol frac. " << vol << endl;
+  162 :   //exit(0);
+  163 :
+  164 :   plot(h,fill=1,value=1,wait=0);
+  165 :
+  166 :   // stopping criterion
+  167 :   Vh0 diff = abs(h-hold);
+  168 :   if(diff[].max<TOL){break;}
+  169 :
+  170 : }
+  171 :
+  172 : real[int] dis = 1:vals.n;
+  173 : plot(h,fill=1,value=1,cmm ="Final h", wait=1);
+  174 :
+  175 : plot([dis,vals],cmm="Evoluion of cost function");
+  176 :  sizestack + 1024 =15592  ( 14568 )
+ 
+Compliance: 0.856993
+Lagmax: 1723.13  Min: 0.1   Max: 0.1
+Lagmin: 9.82566e-08 Min: 1   Max: 1
+Iteration #1 | Compliance 0.651457   Vol frac. 0.5
+Lagmax: 2022.39  Min: 0.1   Max: 0.1
+Lagmin: 2.50676e-08 Min: 1   Max: 1
+ try getConsole D:\Documents\X\3A\P2\MAP562 Structure Optimisation\Homework\MAP562-homework\PC5\CantileverMulti.edp
