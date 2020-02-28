@@ -1,3 +1,8 @@
+/* Geometric optimization of the shape of a cantilever */
+load "medit"
+
+verbosity = 0;
+
 
 int Gamma=0,GammaW=1;
 int NM = 10;

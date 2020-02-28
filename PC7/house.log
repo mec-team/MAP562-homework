@@ -1,260 +1,235 @@
 -- FreeFem++ v4.400003 (jeu. 12 d√©c. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
  Load: lg_fem lg_mesh lg_mesh3 eigenvalue
-    1 :
-    2 : int Gamma=0,GammaW=1;
-    3 : int NM = 10;
-    4 : /* Border of the initial domain */
-    5 : real[int] xH = [0,2,2,1,0];
-    6 : real[int] yH = [0,0,1,2,1];
-    7 : int[int] numberH = NM*[2,1,1.4,1.4,1];
-    8 :
-    9 : border home(t=0,1; i){
-   10 :    int nexti = (i+1)%xH.n;
-   11 :    x = (1-t)*xH[i]+t*xH[nexti];
-   12 :    y = (1-t)*yH[i]+t*yH[nexti];
-   13 :    label = Gamma;
-   14 : }
-   15 :
-   16 : real r = 0.2;
-   17 : real cx = 1;
-   18 : real cy = 0.6;
-   19 : border Cercle(t=0,2*pi){
-   20 :    x = r*cos(t)+cx;
-   21 :    y = r*sin(t)+cy;
-   22 :    label = GammaW;
-   23 : }
-   24 :
-   25 : /* Create, then display initial mesh */
-   26 : mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-   27 :
-   28 : plot(Th,wait=1);
+    1 : /* Geometric optimization of the shape of a cantilever */
+    2 : load "medit"(load: loadLibary D:\Softwares\FreeFem++\\.\medit = 0)
+    3 :
+    4 : verbosity = 0;
+    5 :
+    6 :
+    7 : int Gamma=0,GammaW=1;
+    8 : int NM = 10;
+    9 : /* Border of the initial domain */
+   10 : real[int] xH = [0,2,2,1,0];
+   11 : real[int] yH = [0,0,1,2,1];
+   12 : int[int] numberH = NM*[2,1,1.4,1.4,1];
+   13 :
+   14 : border home(t=0,1; i){
+   15 :    int nexti = (i+1)%xH.n;
+   16 :    x = (1-t)*xH[i]+t*xH[nexti];
+   17 :    y = (1-t)*yH[i]+t*yH[nexti];
+   18 :    label = Gamma;
+   19 : }
+   20 :
+   21 : real r = 0.2;
+   22 : real cx = 1;
+   23 : real cy = 0.6;
+   24 : border Cercle(t=0,2*pi){
+   25 :    x = r*cos(t)+cx;
+   26 :    y = r*sin(t)+cy;
+   27 :    label = GammaW;
+   28 : }
    29 :
-   30 : /* Parameters */
-   31 :
+   30 : /* Create, then display initial mesh */
+   31 : mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
    32 :
-   33 :
+   33 : plot(Th,wait=1);
    34 :
-   35 : real cply = 0.0;
-   36 : real obj = 0.0,newobj = 0.0;
-   37 : mesh Dh;
-   38 : int nit = 200;
-   39 : real eps = 1.e-6;
-   40 : real gmax;
-   41 : real coef = 0.1;
-   42 : real coefmax = 0.2;
-   43 : real coefmin = 0.01;
-   44 : real step;
-   45 : real chkvoltri;
-   46 : real epsvoltri = 1.e-6;
-   47 : real tol = 0.01;
-   48 : real tgv = 1.e10;
+   35 : /* Parameters */
+   36 :
+   37 :
+   38 :
+   39 :
+   40 : real cply = 0.0;
+   41 : real obj = 0.0,newobj = 0.0;
+   42 : mesh Dh;
+   43 : int nit = 200;
+   44 : real eps = 1.e-6;
+   45 : real gmax;
+   46 : real coef = 0.1;
+   47 : real coefmax = 0.2;
+   48 : real coefmin = 0.01;
+   49 : real step;
+   50 : real chkvoltri;
+   51 : real epsvoltri = 1.e-6;
+   52 : real tol = 0.01;
+   53 : real tgv = 1.e10;
  *** Warning  The identifier tgv hide a Global identifier
  
-   49 : real vol = 0.0;
-   50 : real ell = 5.0;
-   51 : real muel = 0.3846;
-   52 : real lambdael = 0.5769;
-   53 : string s;
-   54 : real ux = 0, uy = 1;
-   55 : real T1 = 100, T0 = 20;
-   56 :
-   57 :
-   58 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
-   59 : fespace Vh(Th,P1);
-   60 : fespace Vh0(Th,P0);
+   54 : real vol = 0.0;
+   55 : real ell = 5.0;
+   56 : real muel = 0.3846;
+   57 : real lambdael = 0.5769;
+   58 : string s;
+   59 : real ux = 0, uy = 1;
+   60 : real T1 = 100, T0 = 20;
    61 :
-   62 : /* Functions */
-   63 : Vh   T,phit,grx,gry,ng,uox,uoy,chidir,vx,vy;
-   64 : Vh   p,phip;
-   65 : Vh0  gr0;
+   62 :
+   63 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
+   64 : fespace Vh(Th,P1);
+   65 : fespace Vh0(Th,P0);
    66 :
-   67 : Vh0 hMax = hTriangle; // get sizes of all triangles
-   68 : real meshsiz = hMax[].max; // get maximal triangle size
-   69 : real alpha = (2.0*meshsiz)^2; //regularization parameter
-   70 :
+   67 : /* Functions */
+   68 : Vh   T,phit,grx,gry,ng,uox,uoy,chidir,vx,vy;
+   69 : Vh   p,phip;
+   70 : Vh0  gr0;
    71 :
-   72 : real sqrt2 = sqrt(2);
-   73 :
-   74 : macro grad(u) [dx(u),dy(u)] )  //
-   75 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
+   72 : Vh0 hMax = hTriangle; // get sizes of all triangles
+   73 : real meshsiz = hMax[].max; // get maximal triangle size
+   74 : real alpha = (2.0*meshsiz)^2; //regularization parameter
+   75 :
    76 :
-   77 : /* Heat-Convection system */
+   77 : real sqrt2 = sqrt(2);
    78 :
-   79 : problem Temp(T,phit,solver=Crout) =
-   80 :    int2d(Th)(grad(T)  [dx(T),dy(T)]'*grad(phit)  [dx(phit),dy(phit)])
-   81 :   +int2d(Th)([ux,uy]'*grad(T)  [dx(T),dy(T)]*phit)
-   82 :   -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
-   83 :   +on(Gamma,T=0)
-   84 :   +on(GammaW,T=T1);
-   85 :
-   86 :
-   87 : /* Adjoint Problem */
-   88 :
-   89 : problem Adjoint(p,phip,solver=Crout) =
-   90 :    int2d(Th)(grad(p)  [dx(p),dy(p)]'*grad(phip)  [dx(phip),dy(phip)])
-   91 :   +int2d(Th)([ux,uy]'*grad(p)  [dx(p),dy(p)]*phip)
-   92 :   +int2d(Th)(2*(T-T0)*phip)
-   93 :   +on(Gamma,p=0)
-   94 :   +on(GammaW,p=0);
-   95 :
-   96 :
-   97 :
-   98 : /* Localization function for nodes to be frozen */
-   99 : func real locdir() {
-  100 :   if ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
-  101 :   else return(0.0);
-  102 : }
-  103 : chidir = locdir();
-  104 :
-  105 : /* Tangential derivative */
-  106 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  // EOM
-  107 :
-  108 : /* Extension / regularization problem */
-  109 : /*
-  110 : problem velext([grx,gry],[vx,vy],solver=Crout) =
-  111 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
-  112 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  113 :   + int1d(Th,Gamma)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  114 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
-  115 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
-  116 : */
-  117 :
-  118 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
-  119 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
-  120 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  121 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  122 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
-  123 :   + on(Gamma,grx=0.0,gry=0.0);
-  124 :
-  125 : /*
-  126 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
-  127 :   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy)
-  128 :   + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  129 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  130 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
-  131 :   + on(Gamma,grx=0.0,gry=0.0);
-  132 : */
-  133 :
-  134 :
-  135 : /* Objective function */
-  136 : macro J() ( int2d(Th)((T - T0)^2) ) // EOM
-  137 :
+   79 : macro grad(u) [dx(u),dy(u)] )  //
+   80 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
+   81 :
+   82 : /* Heat-Convection system */
+   83 :
+   84 : problem Temp(T,phit,solver=Crout) =
+   85 :    int2d(Th)(grad(T)  [dx(T),dy(T)]'*grad(phit)  [dx(phit),dy(phit)])
+   86 :   +int2d(Th)([ux,uy]'*grad(T)  [dx(T),dy(T)]*phit)
+   87 :   -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
+   88 :   +on(Gamma,T=0)
+   89 :   +on(GammaW,T=T1);
+   90 :
+   91 :
+   92 : /* Adjoint Problem */
+   93 :
+   94 : problem Adjoint(p,phip,solver=Crout) =
+   95 :    int2d(Th)(grad(p)  [dx(p),dy(p)]'*grad(phip)  [dx(phip),dy(phip)])
+   96 :   +int2d(Th)([ux,uy]'*grad(p)  [dx(p),dy(p)]*phip)
+   97 :   +int2d(Th)(2*(T-T0)*phip)
+   98 :   +on(Gamma,p=0)
+   99 :   +on(GammaW,p=0);
+  100 :
+  101 :
+  102 :
+  103 : /* Localization function for nodes to be frozen */
+  104 : func real locdir() {
+  105 :   if ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
+  106 :   else return(0.0);
+  107 : }
+  108 : chidir = locdir();
+  109 :
+  110 : /* Tangential derivative */
+  111 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  // EOM
+  112 :
+  113 : /* Extension / regularization problem */
+  114 : /*
+  115 : problem velext([grx,gry],[vx,vy],solver=Crout) =
+  116 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
+  117 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  118 :   + int1d(Th,Gamma)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  119 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  120 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
+  121 : */
+  122 :
+  123 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
+  124 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
+  125 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  126 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  127 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  128 :   + on(Gamma,grx=0.0,gry=0.0);
+  129 :
+  130 : /*
+  131 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
+  132 :   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy)
+  133 :   + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  134 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  135 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  136 :   + on(Gamma,grx=0.0,gry=0.0);
+  137 : */
   138 :
-  139 : /* (Negative) shape gradient of J */
-  143 # } // EOM2;(T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y]);
-  144 :
-  145 : /* Initialization */
-  146 : Temp;
-  147 :
-  148 : /* Initial value of the objective function */
-  149 : vol     = Th.area;
-  150 : obj     = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
-  151 :
-  152 : /* Main optimization loop */
-  153 : for(int n=0; n<nit; n++){
-  154 :
-  155 :   /* Computation of the shape gradient as a P1 function and size of the time step */
-  156 :   dJ
-  141 @
-  142 @
-  143 @   {
-  141 @   gr0 = -((T - T0)^2-grad(T)  [dx(T),dy(T)]'*[N.x, N.y]*grad(p)  [dx(p),dy(p)]'*[N.x, N.y]);
-  142 @   velext2;
-  143 @ } ;
-  157 :   ng = sqrt(grx*grx+gry*gry);
-  158 :   gmax = ng[].max;
-  159 :   step = coef*meshsiz / (eps^2+gmax);
-  160 :
-  161 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
-@ß–owith a smaller step */
-  162 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
-  163 :
-  164 :   if( chkvoltri < epsvoltri ) {
-  165 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
-  166 :     coef *= 0.5;
-  167 :     continue;
-  168 :   }
-  169 :
-  170 :   /* Else, effectively move the new mesh */
-  171 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
-  172 :
-  173 :   /* Resolution of the state equation */
-  174 :   uox = ux;
-  175 :   uoy = uy;
-  176 :   Temp;
-  177 :   Adjoint;
-  178 :
-  179 :   /* Evaluation of the new objective function */
-  180 :   vol    = Th.area;
-  181 :   newobj = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
-  182 :
-  183 :   /* Decision */
-  184 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
-  185 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
-  186 :     cout<<"Volume: " << vol << endl;
-  187 :     obj   = newobj;
-  188 :     coef  = min(coefmax,1.02*coef);
-  189 :     Th    = Dh;
-  190 :
-  191 :     /* Adapt the mesh to the current solution of the elasticity system */
-  192 :
-  193 :     Th = adaptmesh(Th,[ux,uy],hmin=0.03,hmax=0.08);
-  194 :
-  195 :     hMax = hTriangle; // get sizes of all triangles
-  196 :     meshsiz = hMax[].max; // get maximal triangle size
-  197 :     cout << meshsiz << endl;
-  198 :     alpha = (2.0*meshsiz)^2;
-  199 :     chidir = locdir();
-  200 :     plot(Th,wait=0);
-  201 :   }
-  202 :   else {
-  203 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
-  204 :     coef  = max(coefmin,0.6*coef);
-  205 :     ux    = uox;
-  206 :     uy    = uoy;
-  207 :   }
-  208 : }
-  209 :
-  210 : /* Print mesh and solution */
-  211 : //savemesh(Th,"Cantilever.mesh");
-  212 : //savesol("Cantilever.sol",Th,[ux,uy]);
-  213 :  sizestack + 1024 =5808  ( 4784 )
+  139 :
+  140 : /* Objective function */
+  141 : macro J() ( int2d(Th)((T - T0)^2) ) // EOM
+  142 :
+  143 :
+  144 : /* (Negative) shape gradient of J */
+  148 # } // EOM2;(T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y]);
+  149 :
+  150 : /* Initialization */
+  151 : Temp;
+  152 :
+  153 : /* Initial value of the objective function */
+  154 : vol     = Th.area;
+  155 : obj     = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
+  156 :
+  157 : /* Main optimization loop */
+  158 : for(int n=0; n<nit; n++){
+  159 :
+  160 :   /* Computation of the shape gradient as a P1 function and size of the time step */
+  161 :   dJ
+  146 @
+  147 @
+  148 @   {
+  146 @   gr0 = -((T - T0)^2-grad(T)  [dx(T),dy(T)]'*[N.x, N.y]*grad(p)  [dx(p),dy(p)]'*[N.x, N.y]);
+  147 @   velext2;
+  148 @ } ;
+  162 :   ng = sqrt(grx*grx+gry*gry);
+  163 :   gmax = ng[].max;
+  164 :   step = coef*meshsiz / (eps^2+gmax);
+  165 :
+  166 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
+`Øbwith a smaller step */
+  167 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
+  168 :
+  169 :   if( chkvoltri < epsvoltri ) {
+  170 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
+  171 :     coef *= 0.5;
+  172 :     continue;
+  173 :   }
+  174 :
+  175 :   /* Else, effectively move the new mesh */
+  176 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
+  177 :
+  178 :   /* Resolution of the state equation */
+  179 :   uox = ux;
+  180 :   uoy = uy;
+  181 :   Temp;
+  182 :   Adjoint;
+  183 :
+  184 :   /* Evaluation of the new objective function */
+  185 :   vol    = Th.area;
+  186 :   newobj = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
+  187 :
+  188 :   /* Decision */
+  189 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
+  190 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
+  191 :     cout<<"Volume: " << vol << endl;
+  192 :     obj   = newobj;
+  193 :     coef  = min(coefmax,1.02*coef);
+  194 :     Th    = Dh;
+  195 :
+  196 :     /* Adapt the mesh to the current solution of the elasticity system */
+  197 :
+  198 :     Th = adaptmesh(Th,[ux,uy],hmin=0.03,hmax=0.08);
+  199 :
+  200 :     hMax = hTriangle; // get sizes of all triangles
+  201 :     meshsiz = hMax[].max; // get maximal triangle size
+  202 :     cout << meshsiz << endl;
+  203 :     alpha = (2.0*meshsiz)^2;
+  204 :     chidir = locdir();
+  205 :     plot(Th,wait=0);
+  206 :   }
+  207 :   else {
+  208 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
+  209 :     coef  = max(coefmin,0.6*coef);
+  210 :     ux    = uox;
+  211 :     uy    = uoy;
+  212 :   }
+  213 : }
+  214 :
+  215 : /* Print mesh and solution */
+  216 : //savemesh(Th,"Cantilever.mesh");
+  217 : //savesol("Cantilever.sol",Th,[ux,uy]);
+  218 :  sizestack + 1024 =5808  ( 4784 )
  
-  --  mesh:  Nb of Triangles =    632, Nb of Vertices 356
-  SkyLineMatrix: size pL/pU: 356 6517 6517 moy=18.3062
-  -- Solve :
-          min 5.1122e-60  max 177.177
- kk 2 3 :   SkyLineMatrix: size pL/pU: 712 26424 26424 moy=37.1124
-  -- Solve :
-          min -733.186  max 888.24
-          min -423.076  max 1407.61
-  SkyLineMatrix: size pL/pU: 356 6517 6517 moy=18.3062
-  -- Solve :
-          min 5.1122e-60  max 177.177
-  SkyLineMatrix: size pL/pU: 356 6517 6517 moy=18.3062
-  -- Solve :
-          min -94.6908  max -1.71349e-60
 Iteration 0 accepted; objective: 11250.6 ---> 11250.6
 Volume: 2.88
-  number of required edges : 0
-  -- adaptmesh Regulary:  Nb triangles 953 , h  min 0.0543716 , h max 0.122691
-     area =  2.86797 , M area = 448.121 , M area/( |Khat| nt) 1.08593
-     infiny-regularity:  min 0.583022  max 1.5713
-     anisomax  2.40973, beta max = 1.20007 min  0.709997
-  --  mesh:  Nb of Triangles =    953, Nb of Vertices 526
 0.122691
- kk 2 3 :   SkyLineMatrix: size pL/pU: 1052 49330 49330 moy=46.8916
-  -- Solve :
-          min -841.765  max 1018.87
-          min -606.272  max 1490.01
-  SkyLineMatrix: size pL/pU: 526 12201 12201 moy=23.1958
-  -- Solve :
-          min 4.86753e-31  max 209.713
-  SkyLineMatrix: size pL/pU: 526 12201 12201 moy=23.1958
-  -- Solve :
-          min -197.992  max -4.20244e-31
 Iteration 1 rejected; objective: 11250.6 v.s. 20334.7
-  current line = 205
+  current line = 210
 Exec error : Try to get unset x,y, ...
    -- number :1
 Exec error : Try to get unset x,y, ...
