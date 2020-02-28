@@ -8,10 +8,12 @@ the size of the whole. However, the volume restriction does not seem to be well
 respected. It may need some other more advanced treatments. Fortunately, the 
 objevtive function generally decreases correctly.
 In the case where there's several holes, the situation is similar. The holes actually 
-tend to reunit as one large hole. However, it is remarkable that when the wholes 
-become large enough such that the boder between holes become very narrow, the variation 
-of the wholes stucks, so at the end the wholes may not be able to occupy the whole 
-domain as in the first case.
+tend to reunit as one large hole. However, it is remarkable that if we use the Crout 
+solver in the temperature and adjoint problems, the variation of the whole can become 
+very slow, the solution can become asymetric even if the initial condition is symetric, 
+and, when the wholes become large enough such that the boder between holes become very 
+narrow, the variation of the wholes stucks, so at the end the wholes may not be able 
+to occupy the whole domain as in the first case.
 */
 
 load "medit"

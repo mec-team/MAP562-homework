@@ -10,243 +10,245 @@
     8 : respected. It may need some other more advanced treatments. Fortunately, the
     9 : objevtive function generally decreases correctly.
    10 : In the case where there's several holes, the situation is similar. The holes actually
-   11 : tend to reunit as one large hole. However, it is remarkable that when the wholes
-   12 : become large enough such that the boder between holes become very narrow, the variation
-   13 : of the wholes stucks, so at the end the wholes may not be able to occupy the whole
-   14 : domain as in the first case.
-   15 : */
-   16 :
-   17 : load "medit"(load: loadLibary E:\FreeFem++\\.\medit = 0)
+   11 : tend to reunit as one large hole. However, it is remarkable that if we use the Crout
+   12 : solver in the temperature and adjoint problems, the variation of the whole can become
+   13 : very slow, the solution can become asymetric even if the initial condition is symetric,
+   14 : and, when the wholes become large enough such that the boder between holes become very
+   15 : narrow, the variation of the wholes stucks, so at the end the wholes may not be able
+   16 : to occupy the whole domain as in the first case.
+   17 : */
    18 :
-   19 : verbosity = 0;
+   19 : load "medit"(load: loadLibary D:\Softwares\FreeFem++\\.\medit = 0)
    20 :
-   21 : /* Border of the initial domain */
+   21 : verbosity = 0;
    22 :
-   23 : int Gamma=0,GammaW=1;
-   24 : int NM = 15;
-   25 :
-   26 : real[int] xH = [0,2,2,1,0];
-   27 : real[int] yH = [0,0,1,2,1];
-   28 : int[int] numberH = NM*[2,1,1.4,1.4,1];
-   29 :
-   30 : border home(t=0,1; i){
-   31 :    int nexti = (i+1)%xH.n;
-   32 :    x = (1-t)*xH[i]+t*xH[nexti];
-   33 :    y = (1-t)*yH[i]+t*yH[nexti];
-   34 :    label = Gamma;
-   35 : }
-   36 : /*
-   37 : real r = 0.3;
-   38 : real cx = 1;
-   39 : real cy = 0.6;
-   40 : border Cercle(t=0,2*pi){
-   41 :    x = r*cos(t)+cx;
-   42 :    y = r*sin(t)+cy;
-   43 :    label = GammaW;
-   44 : }
-   45 : */
-   46 : border h1 (t=0.0,2.0*pi){x=0.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
-   47 : border h2 (t=0.0,2.0*pi){x=1.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
-   48 : border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
-   49 : border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
-   50 :
-   51 :
-   52 : /* Create, then display initial mesh */
-   53 : //mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-   54 : mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.2) + h2(-NM*2*pi*0.2) + h3(-NM*2*pi*0.1) + h4(-NM*2*pi*0.2)
+   23 : /* Border of the initial domain */
+   24 :
+   25 : int Gamma=0,GammaW=1;
+   26 : int NM = 15;
+   27 :
+   28 : real[int] xH = [0,2,2,1,0];
+   29 : real[int] yH = [0,0,1,2,1];
+   30 : int[int] numberH = NM*[2,1,1.4,1.4,1];
+   31 :
+   32 : border home(t=0,1; i){
+   33 :    int nexti = (i+1)%xH.n;
+   34 :    x = (1-t)*xH[i]+t*xH[nexti];
+   35 :    y = (1-t)*yH[i]+t*yH[nexti];
+   36 :    label = Gamma;
+   37 : }
+   38 : /*
+   39 : real r = 0.3;
+   40 : real cx = 1;
+   41 : real cy = 0.6;
+   42 : border Cercle(t=0,2*pi){
+   43 :    x = r*cos(t)+cx;
+   44 :    y = r*sin(t)+cy;
+   45 :    label = GammaW;
+   46 : }
+   47 : */
+   48 : border h1 (t=0.0,2.0*pi){x=0.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+   49 : border h2 (t=0.0,2.0*pi){x=1.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+   50 : border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
+   51 : border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
+   52 :
+   53 :
+   54 : /* Create, then display initial mesh */
+   55 : //mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
+   56 : mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.2) + h2(-NM*2*pi*0.2) + h3(-NM*2*pi*0.1) + h4(-NM*2*pi*0.2)
 );
-   55 : plot(Th,wait=1);
-   56 :
-   57 : /* Parameters */
-   58 : real eps = 1.e-6;
-   59 : real cply = 0.0;
-   60 : real obj = 0.0,newobj = 0.0;
-   61 : mesh Dh;
-   62 : int nit = 200;
-   63 :
-   64 : real gmax;
-   65 : real coef = 0.2;
-   66 : real coefmax = 0.2;
-   67 : real coefmin = 0.01;
-   68 : real step;
-   69 : real chkvoltri;
-   70 : real epsvoltri = 1.e-6;
-   71 : real tol = 0.01;
-   72 : real tgv = 1.e10;
+   57 : plot(Th,wait=1);
+   58 :
+   59 : /* Parameters */
+   60 : real eps = 1.e-6;
+   61 : real cply = 0.0;
+   62 : real obj = 0.0,newobj = 0.0;
+   63 : mesh Dh;
+   64 : int nit = 200;
+   65 :
+   66 : real gmax;
+   67 : real coef = 0.2;
+   68 : real coefmax = 0.2;
+   69 : real coefmin = 0.01;
+   70 : real step;
+   71 : real chkvoltri;
+   72 : real epsvoltri = 1.e-6;
+   73 : real tol = 0.01;
+   74 : real tgv = 1.e10;
  *** Warning  The identifier tgv hide a Global identifier
  
-   73 : real vol = 0.0;
-   74 : real ell = 5.0;
-   75 : string s;
-   76 : real ux = 0, uy = 1;
-   77 : real T1 = 100, T0 = 20;
-   78 :
-   79 : real[int] vals(1);
+   75 : real vol = 0.0;
+   76 : real ell = 5.0;
+   77 : string s;
+   78 : real ux = 0, uy = 1;
+   79 : real T1 = 100, T0 = 20;
    80 :
-   81 :
+   81 : real[int] vals(1);
    82 :
-   83 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
-   84 : fespace Vh(Th,P1);
-   85 : fespace Vh0(Th,P0);
-   86 :
-   87 : /* Functions */
-   88 : Vh   T,phit,grx,gry,ng,Told,chidir,vx,vy;
-   89 : Vh   p,phip,pold;
-   90 : Vh0  gr0;
-   91 :
-   92 : Vh0 hMax = hTriangle; // get sizes of all triangles
-   93 : real meshsiz = hMax[].max; // get maximal triangle size
-   94 : real alpha = (2.0*meshsiz)^2; //regularization parameter
-   95 :
-   96 : real sqrt2 = sqrt(2);
+   83 :
+   84 :
+   85 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
+   86 : fespace Vh(Th,P1);
+   87 : fespace Vh0(Th,P0);
+   88 :
+   89 : /* Functions */
+   90 : Vh   T,phit,grx,gry,ng,Told,chidir,vx,vy;
+   91 : Vh   p,phip,pold;
+   92 : Vh0  gr0;
+   93 :
+   94 : Vh0 hMax = hTriangle; // get sizes of all triangles
+   95 : real meshsiz = hMax[].max; // get maximal triangle size
+   96 : real alpha = (2.0*meshsiz)^2; //regularization parameter
    97 :
-   98 : macro grad(u) [dx(u),dy(u)] )  //
-   99 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
-  100 :
-  101 : /* Heat-Convection system */
+   98 : real sqrt2 = sqrt(2);
+   99 :
+  100 : macro grad(u) [dx(u),dy(u)] )  //
+  101 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
   102 :
-  103 : problem Temp(T,phit) =
-  104 :    int2d(Th)(grad(T)  [dx(T),dy(T)]'*grad(phit)  [dx(phit),dy(phit)])
-  105 :   +int2d(Th)([ux,uy]'*grad(T)  [dx(T),dy(T)]*phit)
-  106 :   -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
-  107 :   +on(Gamma,T=0)
-  108 :   +on(GammaW,T=T1);
-  109 :
-  110 :
-  111 : /* Adjoint Problem */
+  103 : /* Heat-Convection system */
+  104 :
+  105 : problem Temp(T,phit) =
+  106 :    int2d(Th)(grad(T)  [dx(T),dy(T)]'*grad(phit)  [dx(phit),dy(phit)])
+  107 :   +int2d(Th)([ux,uy]'*grad(T)  [dx(T),dy(T)]*phit)
+  108 :   -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
+  109 :   +on(Gamma,T=0)
+  110 :   +on(GammaW,T=T1);
+  111 :
   112 :
-  113 : problem Adjoint(p,phip) =
-  114 :    int2d(Th)(grad(p)  [dx(p),dy(p)]'*grad(phip)  [dx(phip),dy(phip)])
-  115 :   -int2d(Th)([ux,uy]'*grad(p)  [dx(p),dy(p)]*phip)
-  116 :   +int2d(Th)(2*(T-T0)*phip)
-  117 :   +on(Gamma,p=0)
-  118 :   +on(GammaW,p=0);
-  119 :
-  120 : /* Localization function for nodes to be frozen */
-  121 : func real locdir() {
-  122 :   if ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
-  123 :   else return(0.0);
-  124 : }
-  125 : chidir = locdir();
-  126 :
-  127 : /* Tangential derivative */
-  128 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  //
-  129 :
-  130 : /* Extension / regularization problem */
-  131 : /*
-  132 : problem velext([grx,gry],[vx,vy],solver=Crout) =
-  133 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
-  134 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  135 :   + int1d(Th,Gamma)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  136 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
-  137 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
-  138 : */
-  139 :
-  140 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
-  141 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
-  142 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  143 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  144 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
-  145 :   + on(Gamma,grx=0.0,gry=0.0);
-  146 :
-  147 : /*
-  148 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
-  149 :   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy)
-  150 :   + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
-  151 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  152 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
-  153 :   + on(Gamma,grx=0.0,gry=0.0);
-  154 : */
-  155 :
-  156 :
-  157 : /* Objective function */
-  158 : macro J() ( int2d(Th)((T - T0)^2) ) // EOM
-  159 :
-  160 :
-  161 : /* (Negative) shape gradient of J */
-  165 # } // EOM2;(T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y])-ell;
-  166 :
-  167 : /* Initialization */
-  168 : Temp;
-  169 : Adjoint;
-  170 : vals[0]=J       ( int2d(Th)((T - T0)^2) ) ;
-  171 :
-  172 : /* Initial value of the objective function */
-  173 : vol     = Th.area;
-  174 : obj     = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
-  175 :
-  176 : /* Main optimization loop */
-  177 : for(int n=0; n<nit; n++){
-  178 :
-  179 :   /* Computation of the shape gradient as a P1 function and size of the time step */
-  180 :   dJ
-  163 @
-  164 @
-  165 @   {
-  163 @   gr0 = -((T - T0)^2-grad(T)  [dx(T),dy(T)]'*[N.x, N.y]*grad(p)  [dx(p),dy(p)]'*[N.x, N.y])-ell;
-  164 @   velext2;
-  165 @ } ;
-  181 :   ng = sqrt(grx*grx+gry*gry);
-  182 :   gmax = ng[].max;
-  183 :   step = coef*meshsiz / (eps^2+gmax);
-  184 :
-  185 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
-ÿÿÿÿÿÿÿÿÿÿÿÿÂwith a smaller step */
-  186 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
-  187 :
-  188 :   if( chkvoltri < epsvoltri ) {
-  189 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
-  190 :     coef *= 0.5;
-  191 :     continue;
-  192 :   }
-  193 :
-  194 :   /* Else, effectively move the new mesh */
-  195 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
-  196 :
-  197 :   /* Resolution of the state equation */
-  198 :   Told = T;
-  199 :   pold = p;
-  200 :   Temp;
-  201 :   Adjoint;
-  202 :
-  203 :   /* Evaluation of the new objective function */
-  204 :   vol    = Th.area;
-  205 :   newobj = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
-  206 :
-  207 :   /* Decision */
-  208 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
-  209 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
-  210 :     cout<<"Volume: " << vol << endl;
-  211 :     obj   = newobj;
-  212 :     coef  = min(coefmax,1.02*coef);
-  213 :     Th    = Dh;
-  214 :
-  215 :     /* Adapt the mesh to the current solution of the elasticity system */
+  113 : /* Adjoint Problem */
+  114 :
+  115 : problem Adjoint(p,phip) =
+  116 :    int2d(Th)(grad(p)  [dx(p),dy(p)]'*grad(phip)  [dx(phip),dy(phip)])
+  117 :   -int2d(Th)([ux,uy]'*grad(p)  [dx(p),dy(p)]*phip)
+  118 :   +int2d(Th)(2*(T-T0)*phip)
+  119 :   +on(Gamma,p=0)
+  120 :   +on(GammaW,p=0);
+  121 :
+  122 : /* Localization function for nodes to be frozen */
+  123 : func real locdir() {
+  124 :   if ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
+  125 :   else return(0.0);
+  126 : }
+  127 : chidir = locdir();
+  128 :
+  129 : /* Tangential derivative */
+  130 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  //
+  131 :
+  132 : /* Extension / regularization problem */
+  133 : /*
+  134 : problem velext([grx,gry],[vx,vy],solver=Crout) =
+  135 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
+  136 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  137 :   + int1d(Th,Gamma)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  138 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  139 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
+  140 : */
+  141 :
+  142 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
+  143 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
+  144 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  145 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  146 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  147 :   + on(Gamma,grx=0.0,gry=0.0);
+  148 :
+  149 : /*
+  150 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
+  151 :   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy)
+  152 :   + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  153 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  154 :   - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  155 :   + on(Gamma,grx=0.0,gry=0.0);
+  156 : */
+  157 :
+  158 :
+  159 : /* Objective function */
+  160 : macro J() ( int2d(Th)((T - T0)^2) ) // EOM
+  161 :
+  162 :
+  163 : /* (Negative) shape gradient of J */
+  167 # } // EOM2;(T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y])-ell;
+  168 :
+  169 : /* Initialization */
+  170 : Temp;
+  171 : Adjoint;
+  172 : vals[0]=J       ( int2d(Th)((T - T0)^2) ) ;
+  173 :
+  174 : /* Initial value of the objective function */
+  175 : vol     = Th.area;
+  176 : obj     = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
+  177 :
+  178 : /* Main optimization loop */
+  179 : for(int n=0; n<nit; n++){
+  180 :
+  181 :   /* Computation of the shape gradient as a P1 function and size of the time step */
+  182 :   dJ
+  165 @
+  166 @
+  167 @   {
+  165 @   gr0 = -((T - T0)^2-grad(T)  [dx(T),dy(T)]'*[N.x, N.y]*grad(p)  [dx(p),dy(p)]'*[N.x, N.y])-ell;
+  166 @   velext2;
+  167 @ } ;
+  183 :   ng = sqrt(grx*grx+gry*gry);
+  184 :   gmax = ng[].max;
+  185 :   step = coef*meshsiz / (eps^2+gmax);
+  186 :
+  187 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
+`¯with a smaller step */
+  188 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
+  189 :
+  190 :   if( chkvoltri < epsvoltri ) {
+  191 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
+  192 :     coef *= 0.5;
+  193 :     continue;
+  194 :   }
+  195 :
+  196 :   /* Else, effectively move the new mesh */
+  197 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
+  198 :
+  199 :   /* Resolution of the state equation */
+  200 :   Told = T;
+  201 :   pold = p;
+  202 :   Temp;
+  203 :   Adjoint;
+  204 :
+  205 :   /* Evaluation of the new objective function */
+  206 :   vol    = Th.area;
+  207 :   newobj = J       ( int2d(Th)((T - T0)^2) )  + ell*vol;
+  208 :
+  209 :   /* Decision */
+  210 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
+  211 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
+  212 :     cout<<"Volume: " << vol << endl;
+  213 :     obj   = newobj;
+  214 :     coef  = min(coefmax,1.02*coef);
+  215 :     Th    = Dh;
   216 :
-  217 :     Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.1);
+  217 :     /* Adapt the mesh to the current solution of the elasticity system */
   218 :
-  219 :     hMax = hTriangle; // get sizes of all triangles
-  220 :     meshsiz = hMax[].max; // get maximal triangle size
-  221 :     cout << meshsiz << endl;
-  222 :     alpha = (2.0*meshsiz)^2;
-  223 :     chidir = locdir();
-  224 :     plot(Th,wait=0);
-  225 :     vals = [vals,newobj];
-  226 :   }
-  227 :   else {
-  228 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
-  229 :     coef  = max(coefmin,0.6*coef);
-  230 :     T = Told;
-  231 :     p = pold;
-  232 :   }
-  233 : }
-  234 :
-  235 : /* Print mesh and solution */
-  236 : //savemesh(Th,"Cantilever.mesh");
-  237 : //savesol("Cantilever.sol",Th,[ux,uy]);
-  238 :
-  239 : real[int] dis = 1:vals.n;
-  240 : plot([dis,vals],cmm="Evoluion of cost function"); sizestack + 1024 =6424  ( 5400 )
+  219 :     Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.1);
+  220 :
+  221 :     hMax = hTriangle; // get sizes of all triangles
+  222 :     meshsiz = hMax[].max; // get maximal triangle size
+  223 :     cout << meshsiz << endl;
+  224 :     alpha = (2.0*meshsiz)^2;
+  225 :     chidir = locdir();
+  226 :     plot(Th,wait=0);
+  227 :     vals = [vals,newobj];
+  228 :   }
+  229 :   else {
+  230 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
+  231 :     coef  = max(coefmin,0.6*coef);
+  232 :     T = Told;
+  233 :     p = pold;
+  234 :   }
+  235 : }
+  236 :
+  237 : /* Print mesh and solution */
+  238 : //savemesh(Th,"Cantilever.mesh");
+  239 : //savesol("Cantilever.sol",Th,[ux,uy]);
+  240 :
+  241 : real[int] dis = 1:vals.n;
+  242 : plot([dis,vals],cmm="Evoluion of cost function"); sizestack + 1024 =6424  ( 5400 )
  
 Iteration 0 accepted; objective: 5230.93 ---> 5230.93
 Volume: 2.69404
@@ -716,4 +718,4 @@ Iteration 196 rejected; inverted triangle.
 Iteration 197 rejected; inverted triangle.
 Iteration 198 rejected; inverted triangle.
 Iteration 199 rejected; inverted triangle.
- try getConsole F:\github-clone\MAP562-homework\PC7\house.edp
+ try getConsole D:\Documents\X\3A\P2\MAP562 Structure Optimisation\Homework\MAP562-homework\PC7\house.edp
