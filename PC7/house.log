@@ -1,0 +1,37 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 :
+    2 : int Gamma=0,GammaW=1;
+    3 : int NM = 10;
+    4 : /* Border of the initial domain */
+    5 : real[int] xH = [0,2,2,1,0];
+    6 : real[int] yH = [0,0,1,2,1];
+    7 : int[int] numberH = NM*[2,1,1.4,1.4,1];
+    8 :
+    9 : border home(t=0,1; i){
+   10 :    int nexti = (i+1)%xH.n;
+   11 :    x = (1-t)*xH[i]+t*xH[nexti];
+   12 :    y = (1-t)*yH[i]+t*yH[nexti];
+   13 :    label = Gamma;
+   14 : }
+   15 :
+   16 : real r = 0.2;
+   17 : real cx = 1;
+   18 : real cy = 0.6;
+   19 : border Cercle(t=0,2*pi){
+   20 :    x = r*cos(t)+cx;
+   21 :    y = r*sin(t)+cy;
+   22 :    label = GammaW;
+   23 : }
+   24 :
+   25 : /* Create, then display initial mesh */
+   26 : mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
+   27 :
+   28 : plot(Th,wait=1);
+   29 :  sizestack + 1024 =1408  ( 384 )
+ 
+  --  mesh:  Nb of Triangles =    632, Nb of Vertices 356
+times: compile 0.049s, execution 0.023s,  mpirank:0
+ CodeAlloc : nb ptr  3451,  size :454200 mpirank: 0
+Ok: Normal End
+ try getConsole F:\github-clone\MAP562-homework\PC7\house.edp

@@ -1,0 +1,28 @@
+
+int Gamma=0,GammaW=1;
+int NM = 10;
+/* Border of the initial domain */
+real[int] xH = [0,2,2,1,0];
+real[int] yH = [0,0,1,2,1];
+int[int] numberH = NM*[2,1,1.4,1.4,1];
+
+border home(t=0,1; i){
+   int nexti = (i+1)%xH.n;
+   x = (1-t)*xH[i]+t*xH[nexti];
+   y = (1-t)*yH[i]+t*yH[nexti];
+   label = Gamma;
+}
+
+real r = 0.2;
+real cx = 1;
+real cy = 0.6;
+border Cercle(t=0,2*pi){
+   x = r*cos(t)+cx;
+   y = r*sin(t)+cy;
+   label = GammaW;
+}
+
+/* Create, then display initial mesh */
+mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
+
+plot(Th,wait=1);
