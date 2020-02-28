@@ -21,7 +21,7 @@ verbosity = 0;
 /* Border of the initial domain */
 
 int Gamma=0,GammaW=1;
-int NM = 10;
+int NM = 15;
 
 real[int] xH = [0,2,2,1,0];
 real[int] yH = [0,0,1,2,1];
@@ -51,7 +51,7 @@ border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
 
 /* Create, then display initial mesh */
 //mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.1) + h2(-NM*2*pi*0.1) + h3(-NM*2*pi*0.1) );
+mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.3) + h2(-NM*2*pi*0.3) + h3(-NM*2*pi*0.3) );
 plot(Th,wait=1);
 
 /* Parameters */
@@ -59,7 +59,7 @@ real eps = 1.e-6;
 real cply = 0.0;
 real obj = 0.0,newobj = 0.0;
 mesh Dh;
-int nit = 1500;
+int nit = 200;
 
 real gmax;
 real coef = 0.2;
@@ -100,7 +100,7 @@ macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)]//
 
 /* Heat-Convection system */
 
-problem Temp(T,phit,solver=Crout) =
+problem Temp(T,phit) =
    int2d(Th)(grad(T)'*grad(phit))
   +int2d(Th)([ux,uy]'*grad(T)*phit)
   -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
@@ -110,7 +110,7 @@ problem Temp(T,phit,solver=Crout) =
 
 /* Adjoint Problem */
 
-problem Adjoint(p,phip,solver=Crout) =
+problem Adjoint(p,phip) =
    int2d(Th)(grad(p)'*grad(phip))
   -int2d(Th)([ux,uy]'*grad(p)*phip)
   +int2d(Th)(2*(T-T0)*phip)
@@ -160,7 +160,7 @@ macro J() ( int2d(Th)((T - T0)^2) ) // EOM
 
 /* (Negative) shape gradient of J */
 macro dJ() {
-  gr0 = -((T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y]);
+  gr0 = -((T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y])-ell;
   velext2;
 } // EOM
 
@@ -214,7 +214,7 @@ for(int n=0; n<nit; n++){
     
     /* Adapt the mesh to the current solution of the elasticity system */
 
-    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.08);
+    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.1);
 
     hMax = hTriangle; // get sizes of all triangles
     meshsiz = hMax[].max; // get maximal triangle size
