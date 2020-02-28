@@ -1,4 +1,19 @@
 /* Geometric optimization of the shape of a house */
+/*
+Here we study the Question 1
+In the case where there's only one hole, the hole will become larger and larger
+and at the end occupy almost the whole domain. This is logical because the hole's
+temperature is not considered by the cost function. It is thus profitable to increse
+the size of the whole. However, the volume restriction does not seem to be well
+respected. It may need some other more advanced treatments. Fortunately, the 
+objevtive function generally decreases correctly.
+In the case where there's several holes, the situation is similar. The holes actually 
+tend to reunit as one large hole. However, it is remarkable that when the wholes 
+become large enough such that the boder between holes become very narrow, the variation 
+of the wholes stucks, so at the end the wholes may not be able to occupy the whole 
+domain as in the first case.
+*/
+
 load "medit"
 
 verbosity = 0;
@@ -54,6 +69,9 @@ real ell = 5.0;
 string s; 
 real ux = 0, uy = 1;
 real T1 = 100, T0 = 20;
+
+real[int] vals(1);
+
 
 
 /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
@@ -143,6 +161,7 @@ macro dJ() {
 /* Initialization */
 Temp;
 Adjoint;
+vals[0]=J;
 
 /* Initial value of the objective function */
 vol     = Th.area;
@@ -197,6 +216,7 @@ for(int n=0; n<nit; n++){
     alpha = (2.0*meshsiz)^2;
     chidir = locdir();
     plot(Th,wait=0);
+    vals = [vals,newobj];
   }
   else {
     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
@@ -209,3 +229,6 @@ for(int n=0; n<nit; n++){
 /* Print mesh and solution */
 //savemesh(Th,"Cantilever.mesh");
 //savesol("Cantilever.sol",Th,[ux,uy]);
+
+real[int] dis = 1:vals.n;
+plot([dis,vals],cmm="Evoluion of cost function");
