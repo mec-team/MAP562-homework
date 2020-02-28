@@ -45,15 +45,16 @@
    43 :    label = GammaW;
    44 : }
    45 : */
-   46 : border h1 (t=0.0,2.0*pi){x=0.7+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
-   47 : border h2 (t=0.0,2.0*pi){x=1.3+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+   46 : border h1 (t=0.0,2.0*pi){x=0.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+   47 : border h2 (t=0.0,2.0*pi){x=1.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
    48 : border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
-   49 : //border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
+   49 : border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
    50 :
    51 :
    52 : /* Create, then display initial mesh */
    53 : //mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-   54 : mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.3) + h2(-NM*2*pi*0.3) + h3(-NM*2*pi*0.3) );
+   54 : mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.2) + h2(-NM*2*pi*0.2) + h3(-NM*2*pi*0.1) + h4(-NM*2*pi*0.2)
+);
    55 : plot(Th,wait=1);
    56 :
    57 : /* Parameters */
@@ -190,7 +191,7 @@
   183 :   step = coef*meshsiz / (eps^2+gmax);
   184 :
   185 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
-with a smaller step */
+ÿÿÿÿÿÿÿÿÿÿÿÿÂwith a smaller step */
   186 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
   187 :
   188 :   if( chkvoltri < epsvoltri ) {
@@ -245,449 +246,427 @@
   237 : //savesol("Cantilever.sol",Th,[ux,uy]);
   238 :
   239 : real[int] dis = 1:vals.n;
-  240 : plot([dis,vals],cmm="Evoluion of cost function"); sizestack + 1024 =6408  ( 5384 )
+  240 : plot([dis,vals],cmm="Evoluion of cost function"); sizestack + 1024 =6424  ( 5400 )
  
-Iteration 0 accepted; objective: 3050.81 ---> 3050.81
-Volume: 2.71962
-0.147766
-Iteration 1 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 2 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 3 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 4 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 5 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 6 rejected; objective: 3050.81 v.s. 3128.24
-Iteration 7 accepted; objective: 3050.81 ---> 3128.24
-Volume: 2.68475
-0.14612
-Iteration 8 accepted; objective: 3128.24 ---> 3126.74
-Volume: 2.68247
-0.145492
-Iteration 9 accepted; objective: 3126.74 ---> 3129.21
-Volume: 2.68011
-0.144597
-Iteration 10 accepted; objective: 3129.21 ---> 3129.35
-Volume: 2.67771
-0.144836
-Iteration 11 accepted; objective: 3129.35 ---> 3129.86
-Volume: 2.67527
-0.143292
-Iteration 12 accepted; objective: 3129.86 ---> 3130.98
-Volume: 2.6729
-0.142847
-Iteration 13 accepted; objective: 3130.98 ---> 3131.77
-Volume: 2.67038
-0.142056
-Iteration 14 accepted; objective: 3131.77 ---> 3131.34
-Volume: 2.66781
-0.141555
-Iteration 15 accepted; objective: 3131.34 ---> 3131.25
-Volume: 2.66521
-0.14124
-Iteration 16 accepted; objective: 3131.25 ---> 3130.79
-Volume: 2.66255
-0.140453
-Iteration 17 accepted; objective: 3130.79 ---> 3131.63
-Volume: 2.65984
-0.140933
-Iteration 18 accepted; objective: 3131.63 ---> 3135.81
-Volume: 2.65761
-0.13557
-Iteration 19 accepted; objective: 3135.81 ---> 3136.86
-Volume: 2.65478
-0.1354
-Iteration 20 accepted; objective: 3136.86 ---> 3137.22
-Volume: 2.65199
-0.135365
-Iteration 21 accepted; objective: 3137.22 ---> 3137.97
-Volume: 2.64915
-0.135459
-Iteration 22 accepted; objective: 3137.97 ---> 3138.86
-Volume: 2.64623
-0.135501
-Iteration 23 accepted; objective: 3138.86 ---> 3138.75
-Volume: 2.64325
-0.135577
-Iteration 24 accepted; objective: 3138.75 ---> 3139.58
-Volume: 2.6402
-0.135618
-Iteration 25 accepted; objective: 3139.58 ---> 3139.81
-Volume: 2.63709
-0.135655
-Iteration 26 accepted; objective: 3139.81 ---> 3140.25
-Volume: 2.63389
-0.135675
-Iteration 27 accepted; objective: 3140.25 ---> 3140.47
-Volume: 2.63063
-0.135697
-Iteration 28 accepted; objective: 3140.47 ---> 3140.5
-Volume: 2.62729
-0.135719
-Iteration 29 accepted; objective: 3140.5 ---> 3140.32
-Volume: 2.62388
-0.135729
-Iteration 30 accepted; objective: 3140.32 ---> 3140.87
-Volume: 2.62038
-0.135742
-Iteration 31 accepted; objective: 3140.87 ---> 3140.85
-Volume: 2.61681
-0.135753
-Iteration 32 accepted; objective: 3140.85 ---> 3141.94
-Volume: 2.61316
-0.135767
-Iteration 33 accepted; objective: 3141.94 ---> 3143.02
-Volume: 2.60943
-0.135777
-Iteration 34 accepted; objective: 3143.02 ---> 3143.02
-Volume: 2.60568
-0.135788
-Iteration 35 accepted; objective: 3143.02 ---> 3143.75
-Volume: 2.60185
-0.135798
-Iteration 36 accepted; objective: 3143.75 ---> 3144.22
-Volume: 2.59786
-0.135807
-Iteration 37 accepted; objective: 3144.22 ---> 3143.54
-Volume: 2.59378
-0.133237
-Iteration 38 accepted; objective: 3143.54 ---> 3144.3
-Volume: 2.58961
-0.133537
-Iteration 39 accepted; objective: 3144.3 ---> 3143.88
-Volume: 2.58542
-0.134955
-Iteration 40 accepted; objective: 3143.88 ---> 3143.02
-Volume: 2.58114
-0.136411
-Iteration 41 accepted; objective: 3143.02 ---> 3142.62
-Volume: 2.57671
-0.143302
-Iteration 42 accepted; objective: 3142.62 ---> 3142.46
-Volume: 2.57212
-0.139567
-Iteration 43 accepted; objective: 3142.46 ---> 3142.01
-Volume: 2.56721
-0.141212
-Iteration 44 accepted; objective: 3142.01 ---> 3141.1
-Volume: 2.5623
-0.142902
-Iteration 45 accepted; objective: 3141.1 ---> 3140.87
-Volume: 2.55723
-0.144664
-Iteration 46 accepted; objective: 3140.87 ---> 3139.82
-Volume: 2.55198
-0.146499
-Iteration 47 accepted; objective: 3139.82 ---> 3138.76
-Volume: 2.54654
-0.148401
-Iteration 48 accepted; objective: 3138.76 ---> 3137.68
-Volume: 2.54091
-0.131952
-Iteration 49 accepted; objective: 3137.68 ---> 3136.34
-Volume: 2.53507
-0.132168
-Iteration 50 accepted; objective: 3136.34 ---> 3135.66
-Volume: 2.52974
-0.132357
-Iteration 51 accepted; objective: 3135.66 ---> 3135.8
-Volume: 2.5243
-0.132551
-Iteration 52 accepted; objective: 3135.8 ---> 3134.38
-Volume: 2.51876
-0.132765
-Iteration 53 accepted; objective: 3134.38 ---> 3132.14
-Volume: 2.51307
-0.135157
-Iteration 54 accepted; objective: 3132.14 ---> 3130.44
-Volume: 2.50731
-0.135434
-Iteration 55 accepted; objective: 3130.44 ---> 3128.86
-Volume: 2.5013
-0.135629
-Iteration 56 accepted; objective: 3128.86 ---> 3130.64
-Volume: 2.49555
-0.135715
-Iteration 57 accepted; objective: 3130.64 ---> 3131.61
-Volume: 2.4896
-0.135781
-Iteration 58 accepted; objective: 3131.61 ---> 3127.28
-Volume: 2.48274
-0.13585
-Iteration 59 accepted; objective: 3127.28 ---> 3124.25
-Volume: 2.47605
-0.135934
-Iteration 60 accepted; objective: 3124.25 ---> 3121.49
-Volume: 2.46918
-0.135978
-Iteration 61 accepted; objective: 3121.49 ---> 3118.56
-Volume: 2.46217
-0.136054
-Iteration 62 accepted; objective: 3118.56 ---> 3115.72
-Volume: 2.45498
-0.136169
-Iteration 63 accepted; objective: 3115.72 ---> 3112.52
-Volume: 2.44764
-0.136253
-Iteration 64 accepted; objective: 3112.52 ---> 3108.78
-Volume: 2.44011
-0.136285
-Iteration 65 accepted; objective: 3108.78 ---> 3105.77
-Volume: 2.43246
-0.136247
-Iteration 66 accepted; objective: 3105.77 ---> 3108.19
-Volume: 2.42534
-0.136066
-Iteration 67 accepted; objective: 3108.19 ---> 3103.82
-Volume: 2.41727
-0.136
-Iteration 68 accepted; objective: 3103.82 ---> 3095.05
-Volume: 2.40866
-0.135085
-Iteration 69 accepted; objective: 3095.05 ---> 3090.96
-Volume: 2.40028
-0.134688
-Iteration 70 accepted; objective: 3090.96 ---> 3085.97
-Volume: 2.39176
-0.134365
-Iteration 71 accepted; objective: 3085.97 ---> 3080
-Volume: 2.38308
-0.133785
-Iteration 72 accepted; objective: 3080 ---> 3075.65
-Volume: 2.37422
-0.134715
-Iteration 73 accepted; objective: 3075.65 ---> 3071.72
-Volume: 2.36522
-0.134444
-Iteration 74 accepted; objective: 3071.72 ---> 3066.52
-Volume: 2.35599
-0.134769
-Iteration 75 accepted; objective: 3066.52 ---> 3059.9
-Volume: 2.34661
-0.135441
-Iteration 76 accepted; objective: 3059.9 ---> 3053.77
-Volume: 2.33698
-0.136118
-Iteration 77 accepted; objective: 3053.77 ---> 3046.74
-Volume: 2.32709
-0.136797
-Iteration 78 accepted; objective: 3046.74 ---> 3040.19
-Volume: 2.31694
-0.137478
-Iteration 79 accepted; objective: 3040.19 ---> 3032.96
-Volume: 2.30652
-0.138163
-Iteration 80 accepted; objective: 3032.96 ---> 3024.16
-Volume: 2.29569
-0.138846
-Iteration 81 accepted; objective: 3024.16 ---> 3015.94
-Volume: 2.28471
-0.139522
-Iteration 82 accepted; objective: 3015.94 ---> 3007.41
-Volume: 2.27345
-0.140201
-Iteration 83 accepted; objective: 3007.41 ---> 2999.13
-Volume: 2.26187
-0.14088
-Iteration 84 accepted; objective: 2999.13 ---> 2989.7
-Volume: 2.24997
-0.141549
-Iteration 85 accepted; objective: 2989.7 ---> 2979.14
-Volume: 2.23777
-0.142212
-Iteration 86 accepted; objective: 2979.14 ---> 2968.2
-Volume: 2.22529
-0.142851
-Iteration 87 accepted; objective: 2968.2 ---> 2956.92
-Volume: 2.21229
-0.126841
-Iteration 88 accepted; objective: 2956.92 ---> 2947.03
-Volume: 2.19924
-0.144038
-Iteration 89 accepted; objective: 2947.03 ---> 2936.86
-Volume: 2.18774
-0.144667
-Iteration 90 accepted; objective: 2936.86 ---> 2928.25
-Volume: 2.17443
-0.1453
-Iteration 91 accepted; objective: 2928.25 ---> 2915.84
-Volume: 2.16032
-0.145929
-Iteration 92 accepted; objective: 2915.84 ---> 2906.04
-Volume: 2.14585
-0.146556
-Iteration 93 accepted; objective: 2906.04 ---> 2890.92
-Volume: 2.13093
-0.147164
-Iteration 94 accepted; objective: 2890.92 ---> 2875.32
-Volume: 2.11576
-0.147749
-Iteration 95 accepted; objective: 2875.32 ---> 2861.83
-Volume: 2.10022
-0.148298
-Iteration 96 accepted; objective: 2861.83 ---> 2846.34
-Volume: 2.08441
-0.148806
-Iteration 97 accepted; objective: 2846.34 ---> 2828.87
-Volume: 2.06826
-0.149285
-Iteration 98 accepted; objective: 2828.87 ---> 2812.33
-Volume: 2.05171
-0.149731
-Iteration 99 accepted; objective: 2812.33 ---> 2794.72
-Volume: 2.03477
-0.149936
-Iteration 100 accepted; objective: 2794.72 ---> 2776.91
-Volume: 2.01734
-0.136349
-Iteration 101 accepted; objective: 2776.91 ---> 2758.66
-Volume: 1.99958
-0.136968
-Iteration 102 accepted; objective: 2758.66 ---> 2740.96
-Volume: 1.98337
-0.137595
-Iteration 103 accepted; objective: 2740.96 ---> 2723.46
-Volume: 1.96669
-0.138221
-Iteration 104 accepted; objective: 2723.46 ---> 2704.48
-Volume: 1.94933
-0.138842
-Iteration 105 accepted; objective: 2704.48 ---> 2685.99
-Volume: 1.93169
-0.13946
-Iteration 106 accepted; objective: 2685.99 ---> 2665.64
-Volume: 1.9137
-0.140078
-Iteration 107 accepted; objective: 2665.64 ---> 2645.47
-Volume: 1.8953
-0.140702
-Iteration 108 accepted; objective: 2645.47 ---> 2623.94
-Volume: 1.87641
-0.13222
-Iteration 109 accepted; objective: 2623.94 ---> 2602.46
-Volume: 1.85717
-0.134501
-Iteration 110 accepted; objective: 2602.46 ---> 2581.21
-Volume: 1.83866
-0.129648
-Iteration 111 accepted; objective: 2581.21 ---> 2559.02
-Volume: 1.81936
-0.132217
-Iteration 112 accepted; objective: 2559.02 ---> 2537.03
-Volume: 1.80049
-0.124126
-Iteration 113 accepted; objective: 2537.03 ---> 2514.44
-Volume: 1.78083
-0.124579
-Iteration 114 accepted; objective: 2514.44 ---> 2492.26
-Volume: 1.76233
-0.124542
-Iteration 115 accepted; objective: 2492.26 ---> 2469.19
-Volume: 1.74339
-0.131196
-Iteration 116 accepted; objective: 2469.19 ---> 2444.22
-Volume: 1.72412
-0.1249
-Iteration 117 accepted; objective: 2444.22 ---> 2419.49
-Volume: 1.70365
-0.125064
-Iteration 118 accepted; objective: 2419.49 ---> 2396.26
-Volume: 1.68342
-0.124952
-Iteration 119 accepted; objective: 2396.26 ---> 2370.4
-Volume: 1.66345
-0.125459
-Iteration 120 accepted; objective: 2370.4 ---> 2345.28
-Volume: 1.64317
-0.125334
-Iteration 121 accepted; objective: 2345.28 ---> 2319.1
-Volume: 1.62279
-0.142211
-Iteration 122 accepted; objective: 2319.1 ---> 2294.79
-Volume: 1.60169
-0.126241
-Iteration 123 accepted; objective: 2294.79 ---> 2262.92
-Volume: 1.57784
-0.125224
-Iteration 124 accepted; objective: 2262.92 ---> 2236.68
-Volume: 1.55646
-0.128363
-Iteration 125 accepted; objective: 2236.68 ---> 2207.8
-Volume: 1.53466
-0.128934
-Iteration 126 accepted; objective: 2207.8 ---> 2178.86
-Volume: 1.51227
-0.129544
-Iteration 127 accepted; objective: 2178.86 ---> 2149.6
-Volume: 1.48984
-0.122387
-Iteration 128 accepted; objective: 2149.6 ---> 2120.31
-Volume: 1.46735
-0.128152
-Iteration 129 accepted; objective: 2120.31 ---> 2092.02
-Volume: 1.44593
-0.137697
-Iteration 130 accepted; objective: 2092.02 ---> 2064.26
-Volume: 1.42407
-0.132227
-Iteration 131 accepted; objective: 2064.26 ---> 2033.55
-Volume: 1.40044
-0.12938
-Iteration 132 accepted; objective: 2033.55 ---> 2001.56
-Volume: 1.37669
-0.128015
-Iteration 133 accepted; objective: 2001.56 ---> 1972.07
-Volume: 1.3531
-0.124439
-Iteration 134 accepted; objective: 1972.07 ---> 1937.63
-Volume: 1.32844
-0.127734
-Iteration 135 accepted; objective: 1937.63 ---> 1904.98
-Volume: 1.30381
-0.12932
-Iteration 136 accepted; objective: 1904.98 ---> 1871.27
-Volume: 1.27968
-0.126739
-Iteration 137 accepted; objective: 1871.27 ---> 1835.85
-Volume: 1.25447
-0.136163
-Iteration 138 accepted; objective: 1835.85 ---> 1799.6
-Volume: 1.2289
+Iteration 0 accepted; objective: 5230.93 ---> 5230.93
+Volume: 2.69404
+0.145542
+Iteration 1 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 2 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 3 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 4 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 5 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 6 rejected; objective: 5230.93 v.s. 5386.88
+Iteration 7 accepted; objective: 5230.93 ---> 5386.88
+Volume: 2.64454
+0.142333
+Iteration 8 accepted; objective: 5386.88 ---> 5385.86
+Volume: 2.64159
+0.140763
+Iteration 9 accepted; objective: 5385.86 ---> 5385.1
+Volume: 2.6385
+0.139482
+Iteration 10 accepted; objective: 5385.1 ---> 5385.28
+Volume: 2.63536
+0.138567
+Iteration 11 accepted; objective: 5385.28 ---> 5382.45
+Volume: 2.63218
+0.138357
+Iteration 12 accepted; objective: 5382.45 ---> 5383.76
+Volume: 2.62894
+0.138269
+Iteration 13 accepted; objective: 5383.76 ---> 5384.87
+Volume: 2.62563
+0.13816
+Iteration 14 accepted; objective: 5384.87 ---> 5385.02
+Volume: 2.62224
+0.138041
+Iteration 15 accepted; objective: 5385.02 ---> 5384.94
+Volume: 2.61877
+0.137919
+Iteration 16 accepted; objective: 5384.94 ---> 5384.95
+Volume: 2.61522
+0.137785
+Iteration 17 accepted; objective: 5384.95 ---> 5384.87
+Volume: 2.61159
+0.137637
+Iteration 18 accepted; objective: 5384.87 ---> 5384.66
+Volume: 2.60787
+0.137482
+Iteration 19 accepted; objective: 5384.66 ---> 5384.58
+Volume: 2.60406
+0.138508
+Iteration 20 accepted; objective: 5384.58 ---> 5385.78
+Volume: 2.60017
+0.138719
+Iteration 21 accepted; objective: 5385.78 ---> 5385.32
+Volume: 2.59615
+0.138583
+Iteration 22 accepted; objective: 5385.32 ---> 5384.59
+Volume: 2.59202
+0.138391
+Iteration 23 accepted; objective: 5384.59 ---> 5383.68
+Volume: 2.5878
+0.138164
+Iteration 24 accepted; objective: 5383.68 ---> 5382.59
+Volume: 2.58349
+0.137959
+Iteration 25 accepted; objective: 5382.59 ---> 5381.32
+Volume: 2.57908
+0.137756
+Iteration 26 accepted; objective: 5381.32 ---> 5381.16
+Volume: 2.57458
+0.137555
+Iteration 27 accepted; objective: 5381.16 ---> 5379.46
+Volume: 2.56997
+0.137361
+Iteration 28 accepted; objective: 5379.46 ---> 5377.65
+Volume: 2.56526
+0.137173
+Iteration 29 accepted; objective: 5377.65 ---> 5375.64
+Volume: 2.56044
+0.136964
+Iteration 30 accepted; objective: 5375.64 ---> 5373.4
+Volume: 2.55551
+0.136783
+Iteration 31 accepted; objective: 5373.4 ---> 5370.82
+Volume: 2.55046
+0.136589
+Iteration 32 accepted; objective: 5370.82 ---> 5367.9
+Volume: 2.5453
+0.136406
+Iteration 33 accepted; objective: 5367.9 ---> 5364.83
+Volume: 2.54002
+0.13621
+Iteration 34 accepted; objective: 5364.83 ---> 5361.53
+Volume: 2.53462
+0.134952
+Iteration 35 accepted; objective: 5361.53 ---> 5358.25
+Volume: 2.52909
 0.134279
-Iteration 139 accepted; objective: 1799.6 ---> 1758.77
-Volume: 1.19901
-0.132873
-Iteration 140 accepted; objective: 1758.77 ---> 1720.01
-Volume: 1.17178
-0.131598
-Iteration 141 accepted; objective: 1720.01 ---> 1686.15
-Volume: 1.14741
-0.130909
-Iteration 142 accepted; objective: 1686.15 ---> 1651.34
-Volume: 1.12207
-0.136831
-Iteration 143 accepted; objective: 1651.34 ---> 1618.48
-Volume: 1.09687
-0.131212
-Iteration 144 accepted; objective: 1618.48 ---> 1581.94
-Volume: 1.06902
-0.132817
-Iteration 145 accepted; objective: 1581.94 ---> 1534.32
-Volume: 1.03595
-0.135604
-Iteration 146 accepted; objective: 1534.32 ---> 1487.17
-Volume: 1.00031
-0.138511
-Iteration 147 accepted; objective: 1487.17 ---> 1436.25
-Volume: 0.96261
-0.142168
-Iteration 148 accepted; objective: 1436.25 ---> 1381.41
-Volume: 0.92204
-0.145968
-Iteration 149 accepted; objective: 1381.41 ---> 1319.87
-Volume: 0.879032
-0.14807
-Iteration 150 accepted; objective: 1319.87 ---> 1253.22
-Volume: 0.831387
-0.113696
+Iteration 36 accepted; objective: 5358.25 ---> 5354.21
+Volume: 2.52348
+0.133925
+Iteration 37 accepted; objective: 5354.21 ---> 5350.21
+Volume: 2.51776
+0.133823
+Iteration 38 accepted; objective: 5350.21 ---> 5345.9
+Volume: 2.51191
+0.133717
+Iteration 39 accepted; objective: 5345.9 ---> 5341.26
+Volume: 2.50592
+0.133612
+Iteration 40 accepted; objective: 5341.26 ---> 5339.32
+Volume: 2.49979
+0.133482
+Iteration 41 accepted; objective: 5339.32 ---> 5333.66
+Volume: 2.49353
+0.133388
+Iteration 42 accepted; objective: 5333.66 ---> 5327.82
+Volume: 2.4871
+0.133258
+Iteration 43 accepted; objective: 5327.82 ---> 5321.6
+Volume: 2.48051
+0.133159
+Iteration 44 accepted; objective: 5321.6 ---> 5315.16
+Volume: 2.47377
+0.13304
+Iteration 45 accepted; objective: 5315.16 ---> 5308.63
+Volume: 2.46687
+0.132918
+Iteration 46 accepted; objective: 5308.63 ---> 5301.2
+Volume: 2.45979
+0.132793
+Iteration 47 accepted; objective: 5301.2 ---> 5293.37
+Volume: 2.45254
+0.132674
+Iteration 48 accepted; objective: 5293.37 ---> 5285.13
+Volume: 2.44511
+0.132524
+Iteration 49 accepted; objective: 5285.13 ---> 5276.99
+Volume: 2.4375
+0.132404
+Iteration 50 accepted; objective: 5276.99 ---> 5267.88
+Volume: 2.42964
+0.132268
+Iteration 51 accepted; objective: 5267.88 ---> 5258.21
+Volume: 2.42157
+0.132135
+Iteration 52 accepted; objective: 5258.21 ---> 5249.96
+Volume: 2.41331
+0.132025
+Iteration 53 accepted; objective: 5249.96 ---> 5239.02
+Volume: 2.40487
+0.131963
+Iteration 54 accepted; objective: 5239.02 ---> 5227.43
+Volume: 2.39619
+0.132002
+Iteration 55 accepted; objective: 5227.43 ---> 5215.41
+Volume: 2.3873
+0.132223
+Iteration 56 accepted; objective: 5215.41 ---> 5202.86
+Volume: 2.37819
+0.131455
+Iteration 57 accepted; objective: 5202.86 ---> 5191.49
+Volume: 2.36883
+0.131316
+Iteration 58 accepted; objective: 5191.49 ---> 5177.6
+Volume: 2.35929
+0.131142
+Iteration 59 accepted; objective: 5177.6 ---> 5163.22
+Volume: 2.34955
+0.13099
+Iteration 60 accepted; objective: 5163.22 ---> 5147.68
+Volume: 2.33961
+0.130816
+Iteration 61 accepted; objective: 5147.68 ---> 5132.37
+Volume: 2.32941
+0.130695
+Iteration 62 accepted; objective: 5132.37 ---> 5115.94
+Volume: 2.31897
+0.131793
+Iteration 63 accepted; objective: 5115.94 ---> 5098.52
+Volume: 2.30828
+0.133826
+Iteration 64 accepted; objective: 5098.52 ---> 5080.72
+Volume: 2.29718
+0.135956
+Iteration 65 accepted; objective: 5080.72 ---> 5061.26
+Volume: 2.28563
+0.138189
+Iteration 66 accepted; objective: 5061.26 ---> 5040.78
+Volume: 2.2736
+0.140533
+Iteration 67 accepted; objective: 5040.78 ---> 5019.74
+Volume: 2.26106
+0.142994
+Iteration 68 accepted; objective: 5019.74 ---> 4996.45
+Volume: 2.24799
+0.145579
+Iteration 69 accepted; objective: 4996.45 ---> 4978.68
+Volume: 2.23433
+0.148364
+Iteration 70 accepted; objective: 4978.68 ---> 4952.27
+Volume: 2.22013
+0.140155
+Iteration 71 accepted; objective: 4952.27 ---> 4924.79
+Volume: 2.20526
+0.142441
+Iteration 72 accepted; objective: 4924.79 ---> 4897.22
+Volume: 2.19078
+0.144831
+Iteration 73 accepted; objective: 4897.22 ---> 4868.56
+Volume: 2.1757
+0.147343
+Iteration 74 accepted; objective: 4868.56 ---> 4838.24
+Volume: 2.15995
+0.148869
+Iteration 75 accepted; objective: 4838.24 ---> 4803.9
+Volume: 2.14349
+0.148755
+Iteration 76 accepted; objective: 4803.9 ---> 4768.94
+Volume: 2.12642
+0.142747
+Iteration 77 accepted; objective: 4768.94 ---> 4732.88
+Volume: 2.10892
+0.144807
+Iteration 78 accepted; objective: 4732.88 ---> 4696.67
+Volume: 2.09173
+0.146939
+Iteration 79 accepted; objective: 4696.67 ---> 4658.64
+Volume: 2.07381
+0.14915
+Iteration 80 accepted; objective: 4658.64 ---> 4622.43
+Volume: 2.05516
+0.132191
+Iteration 81 accepted; objective: 4622.43 ---> 4580.95
+Volume: 2.03585
+0.131793
+Iteration 82 accepted; objective: 4580.95 ---> 4544.77
+Volume: 2.0184
+0.133131
+Iteration 83 accepted; objective: 4544.77 ---> 4507.52
+Volume: 2.00079
+0.134527
+Iteration 84 accepted; objective: 4507.52 ---> 4465.17
+Volume: 1.98253
+0.135968
+Iteration 85 accepted; objective: 4465.17 ---> 4421.61
+Volume: 1.96362
+0.137455
+Iteration 86 accepted; objective: 4421.61 ---> 4375.95
+Volume: 1.94405
+0.138985
+Iteration 87 accepted; objective: 4375.95 ---> 4332.15
+Volume: 1.92386
+0.14056
+Iteration 88 accepted; objective: 4332.15 ---> 4282.19
+Volume: 1.90304
+0.142161
+Iteration 89 accepted; objective: 4282.19 ---> 4232.08
+Volume: 1.8819
+0.143815
+Iteration 90 accepted; objective: 4232.08 ---> 4179.53
+Volume: 1.86015
+0.145523
+Iteration 91 accepted; objective: 4179.53 ---> 4125.22
+Volume: 1.83772
+0.147204
+Iteration 92 accepted; objective: 4125.22 ---> 4068.88
+Volume: 1.8147
+0.148944
+Iteration 93 accepted; objective: 4068.88 ---> 4008.71
+Volume: 1.79091
+0.149676
+Iteration 94 accepted; objective: 4008.71 ---> 3950.5
+Volume: 1.76641
+0.149333
+Iteration 95 accepted; objective: 3950.5 ---> 3890.47
+Volume: 1.74167
+0.14948
+Iteration 96 accepted; objective: 3890.47 ---> 3823.73
+Volume: 1.71637
+0.149897
+Iteration 97 accepted; objective: 3823.73 ---> 3758.95
+Volume: 1.6904
+0.149641
+Iteration 98 accepted; objective: 3758.95 ---> 3689.15
+Volume: 1.66424
+0.149391
+Iteration 99 accepted; objective: 3689.15 ---> 3624.5
+Volume: 1.6387
+0.139681
+Iteration 100 accepted; objective: 3624.5 ---> 3555.31
+Volume: 1.61307
+0.140457
+Iteration 101 accepted; objective: 3555.31 ---> 3489.31
+Volume: 1.58923
+0.141224
+Iteration 102 accepted; objective: 3489.31 ---> 3423.44
+Volume: 1.56486
+0.141895
+Iteration 103 accepted; objective: 3423.44 ---> 3358.91
+Volume: 1.54026
+0.142544
+Iteration 104 accepted; objective: 3358.91 ---> 3290.87
+Volume: 1.51539
+0.143186
+Iteration 105 accepted; objective: 3290.87 ---> 3221.32
+Volume: 1.4901
+0.143821
+Iteration 106 accepted; objective: 3221.32 ---> 3151.34
+Volume: 1.46471
+0.144457
+Iteration 107 accepted; objective: 3151.34 ---> 3084.4
+Volume: 1.43922
+0.145096
+Iteration 108 accepted; objective: 3084.4 ---> 3012.65
+Volume: 1.41318
+0.14573
+Iteration 109 accepted; objective: 3012.65 ---> 2942.2
+Volume: 1.38708
+0.146383
+Iteration 110 accepted; objective: 2942.2 ---> 2869.38
+Volume: 1.36037
+0.147015
+Iteration 111 accepted; objective: 2869.38 ---> 2796.81
+Volume: 1.33355
+0.147657
+Iteration 112 accepted; objective: 2796.81 ---> 2728.16
+Volume: 1.30637
+0.148296
+Iteration 113 accepted; objective: 2728.16 ---> 2656.76
+Volume: 1.27958
+0.148942
+Iteration 114 accepted; objective: 2656.76 ---> 2583.4
+Volume: 1.25247
+0.149591
+Iteration 115 accepted; objective: 2583.4 ---> 2508.16
+Volume: 1.22518
+0.146533
+Iteration 116 accepted; objective: 2508.16 ---> 2433.76
+Volume: 1.19797
+0.147782
+Iteration 117 accepted; objective: 2433.76 ---> 2359.49
+Volume: 1.17151
+0.149024
+Iteration 118 accepted; objective: 2359.49 ---> 2288.91
+Volume: 1.14399
+0.147411
+Iteration 119 accepted; objective: 2288.91 ---> 2211.48
+Volume: 1.11611
+0.148924
+Iteration 120 accepted; objective: 2211.48 ---> 2138.42
+Volume: 1.08833
+0.148746
+Iteration 121 accepted; objective: 2138.42 ---> 2065.3
+Volume: 1.06007
+0.134692
+Iteration 122 accepted; objective: 2065.3 ---> 1989.99
+Volume: 1.03236
+0.135409
+Iteration 123 accepted; objective: 1989.99 ---> 1925.23
+Volume: 1.00683
+0.136064
+Iteration 124 accepted; objective: 1925.23 ---> 1860.31
+Volume: 0.980798
+0.136742
+Iteration 125 accepted; objective: 1860.31 ---> 1790.24
+Volume: 0.954061
+0.137402
+Iteration 126 accepted; objective: 1790.24 ---> 1726.18
+Volume: 0.92829
+0.138898
+Iteration 127 accepted; objective: 1726.18 ---> 1656.62
+Volume: 0.90193
+0.141004
+Iteration 128 accepted; objective: 1656.62 ---> 1587.58
+Volume: 0.875286
+0.14311
+Iteration 129 accepted; objective: 1587.58 ---> 1520.28
+Volume: 0.847548
+0.145449
+Iteration 130 accepted; objective: 1520.28 ---> 1455.03
+Volume: 0.819132
+0.147701
+Iteration 131 accepted; objective: 1455.03 ---> 1391.67
+Volume: 0.792043
+0.136036
+Iteration 132 accepted; objective: 1391.67 ---> 1328.24
+Volume: 0.763547
+0.136681
+Iteration 133 accepted; objective: 1328.24 ---> 1266.6
+Volume: 0.736109
+0.137263
+Iteration 134 accepted; objective: 1266.6 ---> 1207.75
+Volume: 0.707043
+0.137955
+Iteration 135 accepted; objective: 1207.75 ---> 1145.52
+Volume: 0.677239
+0.138702
+Iteration 136 accepted; objective: 1145.52 ---> 1084.18
+Volume: 0.647022
+0.139025
+Iteration 137 accepted; objective: 1084.18 ---> 1028.73
+Volume: 0.617989
+0.139394
+Iteration 138 accepted; objective: 1028.73 ---> 959.131
+Volume: 0.582765
+0.140043
+Iteration 139 rejected; inverted triangle.
+Iteration 140 accepted; objective: 959.131 ---> 897.73
+Volume: 0.54883
+0.140379
+Iteration 141 rejected; inverted triangle.
+Iteration 142 rejected; inverted triangle.
+Iteration 143 rejected; inverted triangle.
+Iteration 144 rejected; inverted triangle.
+Iteration 145 rejected; inverted triangle.
+Iteration 146 rejected; inverted triangle.
+Iteration 147 rejected; inverted triangle.
+Iteration 148 rejected; inverted triangle.
+Iteration 149 rejected; inverted triangle.
+Iteration 150 rejected; inverted triangle.
 Iteration 151 rejected; inverted triangle.
 Iteration 152 rejected; inverted triangle.
 Iteration 153 rejected; inverted triangle.

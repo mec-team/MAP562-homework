@@ -43,15 +43,15 @@ border Cercle(t=0,2*pi){
    label = GammaW;
 }
 */
-border h1 (t=0.0,2.0*pi){x=0.7+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
-border h2 (t=0.0,2.0*pi){x=1.3+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h1 (t=0.0,2.0*pi){x=0.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h2 (t=0.0,2.0*pi){x=1.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
 border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
-//border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
+border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
 
 
 /* Create, then display initial mesh */
 //mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.3) + h2(-NM*2*pi*0.3) + h3(-NM*2*pi*0.3) );
+mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.2) + h2(-NM*2*pi*0.2) + h3(-NM*2*pi*0.1) + h4(-NM*2*pi*0.2)  );
 plot(Th,wait=1);
 
 /* Parameters */
