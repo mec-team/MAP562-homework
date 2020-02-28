@@ -1,12 +1,13 @@
-/* Geometric optimization of the shape of a cantilever */
+/* Geometric optimization of the shape of a house */
 load "medit"
 
 verbosity = 0;
 
+/* Border of the initial domain */
 
 int Gamma=0,GammaW=1;
 int NM = 10;
-/* Border of the initial domain */
+
 real[int] xH = [0,2,2,1,0];
 real[int] yH = [0,0,1,2,1];
 int[int] numberH = NM*[2,1,1.4,1.4,1];
@@ -18,7 +19,7 @@ border home(t=0,1; i){
    label = Gamma;
 }
 
-real r = 0.2;
+real r = 0.3;
 real cx = 1;
 real cy = 0.6;
 border Cercle(t=0,2*pi){
@@ -33,17 +34,14 @@ mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
 plot(Th,wait=1);
 
 /* Parameters */
-
-
-
-
+real eps = 1.e-6;
 real cply = 0.0;
 real obj = 0.0,newobj = 0.0;
 mesh Dh;
-int nit = 200;
-real eps = 1.e-6;
+int nit = 1500;
+
 real gmax;
-real coef = 0.1;
+real coef = 0.2;
 real coefmax = 0.2;
 real coefmin = 0.01;
 real step;
@@ -53,8 +51,6 @@ real tol = 0.01;
 real tgv = 1.e10;
 real vol = 0.0;
 real ell = 5.0;
-real muel = 0.3846;
-real lambdael = 0.5769;
 string s; 
 real ux = 0, uy = 1;
 real T1 = 100, T0 = 20;
@@ -65,14 +61,13 @@ fespace Vh(Th,P1);
 fespace Vh0(Th,P0);
 
 /* Functions */
-Vh   T,phit,grx,gry,ng,uox,uoy,chidir,vx,vy;
-Vh   p,phip;
+Vh   T,phit,grx,gry,ng,Told,chidir,vx,vy;
+Vh   p,phip,pold;
 Vh0  gr0;
 
 Vh0 hMax = hTriangle; // get sizes of all triangles
 real meshsiz = hMax[].max; // get maximal triangle size
 real alpha = (2.0*meshsiz)^2; //regularization parameter
-
 
 real sqrt2 = sqrt(2);
 
@@ -93,12 +88,10 @@ problem Temp(T,phit,solver=Crout) =
 
 problem Adjoint(p,phip,solver=Crout) =
    int2d(Th)(grad(p)'*grad(phip))
-  +int2d(Th)([ux,uy]'*grad(p)*phip)
+  -int2d(Th)([ux,uy]'*grad(p)*phip)
   +int2d(Th)(2*(T-T0)*phip)
   +on(Gamma,p=0)
-  +on(GammaW,p=0);
-
-
+  +on(GammaW,p=0); 
 
 /* Localization function for nodes to be frozen */
 func real locdir() {
@@ -108,7 +101,7 @@ func real locdir() {
 chidir = locdir();
 
 /* Tangential derivative */
-macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y] // EOM
+macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y] // 
 
 /* Extension / regularization problem */
 /*
@@ -149,6 +142,7 @@ macro dJ() {
 
 /* Initialization */
 Temp;
+Adjoint;
 
 /* Initial value of the objective function */
 vol     = Th.area;
@@ -176,8 +170,8 @@ for(int n=0; n<nit; n++){
     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
 
   /* Resolution of the state equation */
-  uox = ux;
-  uoy = uy;
+  Told = T;
+  pold = p;
   Temp;
   Adjoint;
   
@@ -207,8 +201,8 @@ for(int n=0; n<nit; n++){
   else {
     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
     coef  = max(coefmin,0.6*coef);
-    ux    = uox;
-    uy    = uoy;
+    T = Told;
+    p = pold;
   }
 }
 
