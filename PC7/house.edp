@@ -18,7 +18,7 @@ border home(t=0,1; i){
    y = (1-t)*yH[i]+t*yH[nexti];
    label = Gamma;
 }
-
+/*
 real r = 0.3;
 real cx = 1;
 real cy = 0.6;
@@ -27,10 +27,16 @@ border Cercle(t=0,2*pi){
    y = r*sin(t)+cy;
    label = GammaW;
 }
+*/
+border h1 (t=0.0,2.0*pi){x=0.7+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h2 (t=0.0,2.0*pi){x=1.3+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
+//border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
+
 
 /* Create, then display initial mesh */
-mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
-
+//mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
+mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.1) + h2(-NM*2*pi*0.1) + h3(-NM*2*pi*0.1) );
 plot(Th,wait=1);
 
 /* Parameters */
@@ -189,7 +195,7 @@ for(int n=0; n<nit; n++){
     
     /* Adapt the mesh to the current solution of the elasticity system */
 
-    Th = adaptmesh(Th,[ux,uy],hmin=0.03,hmax=0.08);
+    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.08);
 
     hMax = hTriangle; // get sizes of all triangles
     meshsiz = hMax[].max; // get maximal triangle size
