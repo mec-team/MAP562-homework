@@ -106,13 +106,14 @@ problem velext2([grx,gry],[vx,vy],solver=Crout) =
   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
   + on(GammaN,GammaD,grx=0.0,gry=0.0);
 
+/*
 problem velext3([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy) 
 //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
 +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
   + on(GammaN,GammaD,grx=0.0,gry=0.0);
-
+*/
 
 /* Objective function */
 macro J() ( int1d(Th,GammaN)(gx*ux+gy*uy)) // EOM
