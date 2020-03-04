@@ -1,0 +1,655 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : // Optimal radiator                  //
+    2 : //                                   //
+    3 : // Ecole Polytechnique, MAP 562      //
+    4 : // Copyright G. Allaire, 2004        //
+    5 : //                                   //
+    6 : // modified by T. Wick, N. Spillane, B. Bogosel  //
+    7 :
+    8 :
+    9 : //Problem parameters
+   10 : int niter=100;                  // Number of total iterations
+   11 : int npen= 30;                   // Starting iterations without penalization
+   12 : int n=5;                        // Size of the mesh
+   13 : real lagrange=1.;               // Lagrange multiplier for the volume
+   14 : real lagmin, lagmax ;           // Lower and upper bounds of the Lagrange multiplier
+   15 : int inddico ;                   // Counter of iterations of the dichonomy problem
+   16 : real objectivefct;              // Objective function
+   17 : real volume0;                   // Initial volume
+   18 : real volume,
+ *** Warning  The identifier volume hide a Global identifier
+volume1;                // Current volume
+   19 :
+   20 : // Some output commands
+   21 : string caption;                 // caption for graphical outputs
+   22 : real[int] vviso(21);
+   23 : for (int i=0;i<21;i++)
+   24 : vviso[i]=i*0.05 ;
+   25 :
+   26 : // applied forces on the top boundary
+   27 : func g=1;                       // Temperature flux
+   28 :
+   29 :
+   30 : /////////////////////////////////
+   31 : // Defining the two phases
+   32 : // and the characteristic function theta
+   33 : /////////////////////////////////
+   34 : real alpha=1;
+   35 : real beta=10;
+   36 : func theta0=(x>0.1)*(x<0.9)*(y<0.9) ;
+   37 :
+   38 :
+   39 :
+   40 : ////////////////////////////////        1:Dirichlet condition
+   41 : // Definition of the domain   //        2:Neumann condition
+   42 : ////////////////////////////////        3:Non-homogen. Neumann (temp. flux)
+   43 : mesh Th ;
+   44 :
+   45 : int GammaD=1,GammaN=2,Gamma=3;
+   46 :
+   47 : border bd(t=0,1)   { x=1; y=t;label=Gamma; };     // Right boundary
+   48 : border bg(t=1,0)   { x=0; y=t;label=Gamma; };     // Left boundary
+   49 : border bs(t=1,0)   { x=t; y=1;label=GammaN; };     // Top boundary
+   50 : border b1(t=0,0.1)   { x=t; y=0;label=GammaD; };   // Bottom boundary
+   51 : border b2(t=0.1,0.9)   { x=t; y=0;label=Gamma; }; // Inner boundary
+   52 : border b3(t=0.9,1)   { x=t; y=0;label=GammaD; };   // Inner boundary
+   53 :
+   54 :
+   55 : //////////////////////////////
+   56 : // Construction of the mesh //
+   57 : //////////////////////////////
+   58 : Th= buildmesh (bd(10*n)+bs(10*n)+bg(10*n)+b1(1*n)+b2(8*n)+b3(1*n));
+   59 : plot(Th,wait=0);
+   60 :
+   61 :
+   62 : //////////////////////////////////
+   63 : // Defining the finite elements //
+   64 : //////////////////////////////////
+   65 :
+   66 : fespace Vh0(Th,P0);
+   67 : fespace Vh2(Th,P2);
+   68 :
+   69 : // Solution variable: T
+   70 : // Test function: v
+   71 : Vh2 T,v;
+   72 :
+   73 : // P0-space (constants) for
+   74 : // the characteristic functions
+   75 : // and the density (similar to geometric optimization)
+   76 : Vh0 theta,density, thetb,A,tau;
+   77 :
+   78 :
+   79 : ////////////////////////////////////
+   80 : // Proportions of the two phases  //
+   81 : ////////////////////////////////////
+   82 : theta = theta0;//1-0.280379;//theta0 ;
+   83 : thetb = 1-theta ;
+   84 :
+   85 :
+   86 : ///////////////////////////////
+   87 : // Implementation of the PDE //
+   88 : ///////////////////////////////
+   89 :
+   90 : macro grad(u) [dx(u),dy(u)] )  //
+   91 :
+   92 : problem conduction(T,v) =
+   93 :     int2d(Th)(A*(grad(T)  [dx(T),dy(T)]'*grad(v)  [dx(v),dy(v)]))
+   94 :    -int1d(Th,GammaN)(g*v)
+   95 :     +on(GammaD,T=0)
+   96 : ;
+   97 :
+   98 : ////////////////////////////////
+   99 : // In the following, we perform
+  100 : // the initialization of the
+  101 : // volume and the objective function
+  102 : ////////////////////////////////
+  103 :
+  104 : // Initial volume
+  105 : volume0=int2d(Th)(1-theta);
+  106 :
+  107 : // Solve once the PDE in order
+  108 : // to get the initial temperature field.
+  109 : // This temperature is then used
+  110 : // to initialize the objective function.
+  111 : A= (alpha*theta+beta*(1-theta));
+  112 : conduction;
+  113 :
+  114 : // Compute the objective function
+  115 : objectivefct = int1d(Th,GammaN)(g*T);
+  116 : cout<<"Initialization. Objective fct = "<<objectivefct<<" Volume = "<<volume0<<endl;
+  117 :
+  118 :
+  119 : // Update the thetb (phase 2)
+  120 : thetb=1-theta ;
+  121 :
+  122 : // Visualization
+  123 : int iter;
+  124 : iter=0;
+  125 : caption="Iteration "+iter+", Objective fct= "+objectivefct+", Volume="+volume0;
+  126 : plot(Th,thetb,fill=1,value=0,viso=vviso,cmm=caption,wait=0);
+  127 :
+  128 : // Optimization loop             //
+  129 :
+  130 : real[int] vals(niter);
+  131 : vals[0] = objectivefct;
+  132 : for (iter=1;iter< niter;iter=iter+1)
+  133 : {
+  134 : cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
+  135 :
+  136 : // Computing the energy density
+  137 : tau = (((alpha*theta + beta*(1-theta)))^2) * (dx(T)^2+dy(T)^2);
+  138 :
+  139 : // Update the proportions of the two phases and
+  140 : // project them onto their limit values if necessary
+  141 : theta = ( beta - sqrt(tau*(beta-alpha)/(lagrange)) )/(beta-alpha);
+  142 : theta = min(theta,1) ;
+  143 : theta = max(theta,0) ;
+  144 :
+  145 : // Apply penalization (slide 67 in lecture chapter7.pdf), once
+  146 : // the "initial" number of iterations has been exceeded.
+  147 : if (iter > npen) { theta = ( 1 - cos(pi*theta) )/2 ; };
+  148 :
+  149 :
+  150 : // Similar to geometric optimization,
+  151 : // we calculate the Lagrange multiplier
+  152 : // and make sure that it stays within
+  153 : // its bounds.
+  154 : volume=int2d(Th)(1-theta);
+  155 : volume1 = volume ;
+  156 :
+  157 : if (volume1 < volume0)
+  158 : {
+  159 :    lagmin = lagrange ;
+  160 :    while (volume < volume0)
+  161 :    {
+  162 :       lagrange = lagrange/2 ;
+  163 :       theta = ( beta - sqrt(tau*(beta-alpha)/(lagrange)) )/(beta-alpha);
+  164 :       theta = min(theta,1) ;
+  165 :       theta = max(theta,0) ;
+  166 :
+  167 :       if (iter > npen) { theta = ( 1 - cos(pi*theta) )/2 ; };
+  168 :          volume=int2d(Th)(1-theta) ;
+  169 :    };
+  170 :    lagmax = lagrange ;
+  171 : };
+  172 :
+  173 : if (volume1 > volume0)
+  174 : {
+  175 :    lagmax = lagrange ;
+  176 :    while (volume > volume0)
+  177 :    {
+  178 :       lagrange = 2*lagrange ;
+  179 :       theta = ( beta - sqrt(tau*(beta-alpha)/(lagrange)) )/(beta-alpha);
+  180 :       theta = min(theta,1) ;
+  181 :       theta = max(theta,0) ;
+  182 :
+  183 :       if (iter > npen) { theta = ( 1 - cos(pi*theta) )/2 ; };
+  184 :          volume=int2d(Th)(1-theta) ;
+  185 :    };
+  186 :    lagmin = lagrange ;
+  187 : };
+  188 :
+  189 : if (volume1 == volume0)
+  190 : {
+  191 :    lagmin = lagrange ;
+  192 :    lagmax = lagrange ;
+  193 : };
+  194 :
+  195 : // Solving the dichonomy problem
+  196 : // to compute a Lagrange multiplier
+  197 : // in order to enforce the volume
+  198 : // constraint (see chapter5.pdf)
+  199 : inddico=0;
+  200 : while ((abs(1.-volume/volume0)) > 0.000001)
+  201 : {
+  202 :    lagrange = (lagmax+lagmin)*0.5 ;
+  203 :    theta = ( beta - sqrt(tau*(beta-alpha)/(lagrange)) )/(beta-alpha);
+  204 :    theta = min(theta,1); theta = max(theta,0);
+  205 :    if (iter > npen) { theta = ( 1 - cos(pi*theta) )/2 ; };
+  206 :       volume=int2d(Th)(1-theta) ;
+  207 :       inddico=inddico+1;
+  208 :       if (volume < volume0)
+  209 :          {lagmin = lagrange ;} ;
+  210 :       if (volume > volume0)
+  211 :          {lagmax = lagrange ;} ;
+  212 : };
+  213 :
+  214 : //cout<<"Number of iteration of the dichonomy problem: "<<inddico<<endl;
+  215 :
+  216 :
+  217 : // After having computed all constraints
+  218 : // and the proportions of the two phases, we
+  219 : // solve the PDE (i.e., the thermal problem)
+  220 : A =(alpha*theta+beta*(1-theta));
+  221 : conduction;
+  222 : //plot(T,wait=1);
+  223 :
+  224 : // Evaluate the cost functional
+  225 : objectivefct=int1d(Th,GammaN)(g*T);
+  226 : vals[iter] = objectivefct;
+  227 : cout<<"Objective fct: "<<objectivefct<<" Volume: "<<volume<<" Lagrange: "<<lagrange<<endl;
+  228 :
+  229 : // Finally we update the proportion
+  230 : thetb=1-theta;
+  231 : caption="Iteration "+iter+", Objective fct "+objectivefct+", Volume="+volume;
+  232 : plot(thetb,fill=1,value=0,viso=vviso,cmm=caption,wait=0);
+  233 : }; // end of the optimization loop
+  234 :
+  235 :
+  236 : // Final updates and visualization
+  237 : thetb=1-theta ;
+  238 :
+  239 : caption="Final Shape, Iteration "+iter+", Objective fct "+objectivefct+", Volume="+volume;
+  240 : plot(Th,thetb,fill=1,viso=vviso,cmm=caption);
+  241 :
+  242 : real[int] dis(niter);
+  243 : dis = 1:niter;
+  244 : plot([dis,vals],cmm="Cost function evolution");
+  245 :  sizestack + 1024 =12648  ( 11624 )
+ 
+  --  mesh:  Nb of Triangles =   5892, Nb of Vertices 3047
+  -- Solve :
+          min 1.5363e-32  max 0.398463
+Initialization. Objective fct = 0.37931 Volume = 0.280664
+Iteration 1 ----------------------------------------
+  -- Solve :
+          min 1.39938e-32  max 0.356508
+Objective fct: 0.331611 Volume: 0.280665 Lagrange: 0.503475
+Iteration 2 ----------------------------------------
+  -- Solve :
+          min 1.29951e-32  max 0.341921
+Objective fct: 0.318593 Volume: 0.280665 Lagrange: 0.67749
+Iteration 3 ----------------------------------------
+  -- Solve :
+          min 1.26012e-32  max 0.334552
+Objective fct: 0.314582 Volume: 0.280664 Lagrange: 0.731083
+Iteration 4 ----------------------------------------
+  -- Solve :
+          min 1.2439e-32  max 0.330459
+Objective fct: 0.312817 Volume: 0.280664 Lagrange: 0.752459
+Iteration 5 ----------------------------------------
+  -- Solve :
+          min 1.23679e-32  max 0.328024
+Objective fct: 0.311805 Volume: 0.280664 Lagrange: 0.762446
+Iteration 6 ----------------------------------------
+  -- Solve :
+          min 1.23284e-32  max 0.326465
+Objective fct: 0.311125 Volume: 0.280664 Lagrange: 0.767687
+Iteration 7 ----------------------------------------
+  -- Solve :
+          min 1.23046e-32  max 0.325403
+Objective fct: 0.310627 Volume: 0.280664 Lagrange: 0.770642
+Iteration 8 ----------------------------------------
+  -- Solve :
+          min 1.22909e-32  max 0.324642
+Objective fct: 0.310242 Volume: 0.280664 Lagrange: 0.772314
+Iteration 9 ----------------------------------------
+  -- Solve :
+          min 1.22816e-32  max 0.324075
+Objective fct: 0.309933 Volume: 0.280664 Lagrange: 0.773369
+Iteration 10 ----------------------------------------
+  -- Solve :
+          min 1.22738e-32  max 0.323642
+Objective fct: 0.309679 Volume: 0.280664 Lagrange: 0.774112
+Iteration 11 ----------------------------------------
+  -- Solve :
+          min 1.22675e-32  max 0.323304
+Objective fct: 0.309466 Volume: 0.280665 Lagrange: 0.774656
+Iteration 12 ----------------------------------------
+  -- Solve :
+          min 1.22625e-32  max 0.323034
+Objective fct: 0.309285 Volume: 0.280664 Lagrange: 0.775049
+Iteration 13 ----------------------------------------
+  -- Solve :
+          min 1.2258e-32  max 0.322816
+Objective fct: 0.309129 Volume: 0.280664 Lagrange: 0.77535
+Iteration 14 ----------------------------------------
+  -- Solve :
+          min 1.22536e-32  max 0.322637
+Objective fct: 0.308994 Volume: 0.280664 Lagrange: 0.775578
+Iteration 15 ----------------------------------------
+  -- Solve :
+          min 1.22492e-32  max 0.322487
+Objective fct: 0.308875 Volume: 0.280664 Lagrange: 0.775747
+Iteration 16 ----------------------------------------
+  -- Solve :
+          min 1.22451e-32  max 0.322361
+Objective fct: 0.30877 Volume: 0.280664 Lagrange: 0.775892
+Iteration 17 ----------------------------------------
+  -- Solve :
+          min 1.22412e-32  max 0.322256
+Objective fct: 0.308678 Volume: 0.280664 Lagrange: 0.776031
+Iteration 18 ----------------------------------------
+  -- Solve :
+          min 1.22373e-32  max 0.322166
+Objective fct: 0.308595 Volume: 0.280664 Lagrange: 0.776155
+Iteration 19 ----------------------------------------
+  -- Solve :
+          min 1.22337e-32  max 0.322091
+Objective fct: 0.308522 Volume: 0.280664 Lagrange: 0.776297
+Iteration 20 ----------------------------------------
+  -- Solve :
+          min 1.223e-32  max 0.322026
+Objective fct: 0.308457 Volume: 0.280664 Lagrange: 0.776413
+Iteration 21 ----------------------------------------
+  -- Solve :
+          min 1.22266e-32  max 0.321969
+Objective fct: 0.308398 Volume: 0.280664 Lagrange: 0.776512
+Iteration 22 ----------------------------------------
+  -- Solve :
+          min 1.22233e-32  max 0.321921
+Objective fct: 0.308344 Volume: 0.280665 Lagrange: 0.776592
+Iteration 23 ----------------------------------------
+  -- Solve :
+          min 1.22201e-32  max 0.321879
+Objective fct: 0.308297 Volume: 0.280664 Lagrange: 0.776675
+Iteration 24 ----------------------------------------
+  -- Solve :
+          min 1.22171e-32  max 0.321842
+Objective fct: 0.308253 Volume: 0.280664 Lagrange: 0.776743
+Iteration 25 ----------------------------------------
+  -- Solve :
+          min 1.22142e-32  max 0.32181
+Objective fct: 0.308214 Volume: 0.280664 Lagrange: 0.776799
+Iteration 26 ----------------------------------------
+  -- Solve :
+          min 1.22115e-32  max 0.321782
+Objective fct: 0.308178 Volume: 0.280664 Lagrange: 0.776862
+Iteration 27 ----------------------------------------
+  -- Solve :
+          min 1.2209e-32  max 0.321758
+Objective fct: 0.308145 Volume: 0.280664 Lagrange: 0.776921
+Iteration 28 ----------------------------------------
+  -- Solve :
+          min 1.22066e-32  max 0.321737
+Objective fct: 0.308115 Volume: 0.280665 Lagrange: 0.776977
+Iteration 29 ----------------------------------------
+  -- Solve :
+          min 1.22043e-32  max 0.32172
+Objective fct: 0.308087 Volume: 0.280664 Lagrange: 0.777034
+Iteration 30 ----------------------------------------
+  -- Solve :
+          min 1.22024e-32  max 0.321704
+Objective fct: 0.308062 Volume: 0.280664 Lagrange: 0.777084
+Iteration 31 ----------------------------------------
+  -- Solve :
+          min 1.21917e-32  max 0.33225
+Objective fct: 0.310708 Volume: 0.280664 Lagrange: 0.637456
+Iteration 32 ----------------------------------------
+  -- Solve :
+          min 1.22346e-32  max 0.338598
+Objective fct: 0.311854 Volume: 0.280664 Lagrange: 0.656203
+Iteration 33 ----------------------------------------
+  -- Solve :
+          min 1.22788e-32  max 0.343216
+Objective fct: 0.312849 Volume: 0.280665 Lagrange: 0.660491
+Iteration 34 ----------------------------------------
+  -- Solve :
+          min 1.23143e-32  max 0.346286
+Objective fct: 0.313774 Volume: 0.280664 Lagrange: 0.658241
+Iteration 35 ----------------------------------------
+  -- Solve :
+          min 1.23458e-32  max 0.348442
+Objective fct: 0.314676 Volume: 0.280664 Lagrange: 0.663881
+Iteration 36 ----------------------------------------
+  -- Solve :
+          min 1.23735e-32  max 0.349994
+Objective fct: 0.315479 Volume: 0.280664 Lagrange: 0.684967
+Iteration 37 ----------------------------------------
+  -- Solve :
+          min 1.23976e-32  max 0.3508
+Objective fct: 0.316063 Volume: 0.280664 Lagrange: 0.721253
+Iteration 38 ----------------------------------------
+  -- Solve :
+          min 1.2422e-32  max 0.350576
+Objective fct: 0.316397 Volume: 0.280664 Lagrange: 0.762231
+Iteration 39 ----------------------------------------
+  -- Solve :
+          min 1.24433e-32  max 0.349532
+Objective fct: 0.316694 Volume: 0.280664 Lagrange: 0.787548
+Iteration 40 ----------------------------------------
+  -- Solve :
+          min 1.24521e-32  max 0.348484
+Objective fct: 0.317123 Volume: 0.280664 Lagrange: 0.792851
+Iteration 41 ----------------------------------------
+  -- Solve :
+          min 1.24561e-32  max 0.347896
+Objective fct: 0.317625 Volume: 0.280664 Lagrange: 0.790546
+Iteration 42 ----------------------------------------
+  -- Solve :
+          min 1.24614e-32  max 0.34768
+Objective fct: 0.318097 Volume: 0.280665 Lagrange: 0.786258
+Iteration 43 ----------------------------------------
+  -- Solve :
+          min 1.24689e-32  max 0.347609
+Objective fct: 0.318489 Volume: 0.280664 Lagrange: 0.781015
+Iteration 44 ----------------------------------------
+  -- Solve :
+          min 1.24774e-32  max 0.347559
+Objective fct: 0.318785 Volume: 0.280664 Lagrange: 0.775652
+Iteration 45 ----------------------------------------
+  -- Solve :
+          min 1.24856e-32  max 0.347506
+Objective fct: 0.31901 Volume: 0.280664 Lagrange: 0.770244
+Iteration 46 ----------------------------------------
+  -- Solve :
+          min 1.24931e-32  max 0.347462
+Objective fct: 0.319188 Volume: 0.280664 Lagrange: 0.764802
+Iteration 47 ----------------------------------------
+  -- Solve :
+          min 1.25e-32  max 0.347459
+Objective fct: 0.319332 Volume: 0.280664 Lagrange: 0.759288
+Iteration 48 ----------------------------------------
+  -- Solve :
+          min 1.25063e-32  max 0.347562
+Objective fct: 0.319454 Volume: 0.280664 Lagrange: 0.75368
+Iteration 49 ----------------------------------------
+  -- Solve :
+          min 1.25115e-32  max 0.347671
+Objective fct: 0.319557 Volume: 0.280664 Lagrange: 0.748068
+Iteration 50 ----------------------------------------
+  -- Solve :
+          min 1.25154e-32  max 0.347783
+Objective fct: 0.319639 Volume: 0.280664 Lagrange: 0.742869
+Iteration 51 ----------------------------------------
+  -- Solve :
+          min 1.25177e-32  max 0.347902
+Objective fct: 0.319707 Volume: 0.280664 Lagrange: 0.738516
+Iteration 52 ----------------------------------------
+  -- Solve :
+          min 1.25189e-32  max 0.348033
+Objective fct: 0.319771 Volume: 0.280664 Lagrange: 0.735124
+Iteration 53 ----------------------------------------
+  -- Solve :
+          min 1.25196e-32  max 0.348167
+Objective fct: 0.319838 Volume: 0.280664 Lagrange: 0.73241
+Iteration 54 ----------------------------------------
+  -- Solve :
+          min 1.25204e-32  max 0.34828
+Objective fct: 0.319903 Volume: 0.280664 Lagrange: 0.730018
+Iteration 55 ----------------------------------------
+  -- Solve :
+          min 1.25213e-32  max 0.348351
+Objective fct: 0.31996 Volume: 0.280664 Lagrange: 0.727612
+Iteration 56 ----------------------------------------
+  -- Solve :
+          min 1.2522e-32  max 0.348373
+Objective fct: 0.320008 Volume: 0.280664 Lagrange: 0.724981
+Iteration 57 ----------------------------------------
+  -- Solve :
+          min 1.25224e-32  max 0.348349
+Objective fct: 0.320053 Volume: 0.280664 Lagrange: 0.722016
+Iteration 58 ----------------------------------------
+  -- Solve :
+          min 1.25229e-32  max 0.348282
+Objective fct: 0.320096 Volume: 0.280664 Lagrange: 0.718953
+Iteration 59 ----------------------------------------
+  -- Solve :
+          min 1.25239e-32  max 0.348177
+Objective fct: 0.320133 Volume: 0.280664 Lagrange: 0.716112
+Iteration 60 ----------------------------------------
+  -- Solve :
+          min 1.25258e-32  max 0.348064
+Objective fct: 0.320161 Volume: 0.280664 Lagrange: 0.713686
+Iteration 61 ----------------------------------------
+  -- Solve :
+          min 1.25284e-32  max 0.348056
+Objective fct: 0.32018 Volume: 0.280664 Lagrange: 0.711682
+Iteration 62 ----------------------------------------
+  -- Solve :
+          min 1.25315e-32  max 0.348044
+Objective fct: 0.32019 Volume: 0.280664 Lagrange: 0.710032
+Iteration 63 ----------------------------------------
+  -- Solve :
+          min 1.25349e-32  max 0.348029
+Objective fct: 0.320192 Volume: 0.280664 Lagrange: 0.70858
+Iteration 64 ----------------------------------------
+  -- Solve :
+          min 1.25384e-32  max 0.348012
+Objective fct: 0.32019 Volume: 0.280664 Lagrange: 0.707218
+Iteration 65 ----------------------------------------
+  -- Solve :
+          min 1.25418e-32  max 0.347994
+Objective fct: 0.320184 Volume: 0.280664 Lagrange: 0.705944
+Iteration 66 ----------------------------------------
+  -- Solve :
+          min 1.25451e-32  max 0.347978
+Objective fct: 0.320176 Volume: 0.280664 Lagrange: 0.704867
+Iteration 67 ----------------------------------------
+  -- Solve :
+          min 1.25477e-32  max 0.347963
+Objective fct: 0.320164 Volume: 0.280664 Lagrange: 0.70405
+Iteration 68 ----------------------------------------
+  -- Solve :
+          min 1.25462e-32  max 0.34795
+Objective fct: 0.320146 Volume: 0.280665 Lagrange: 0.703491
+Iteration 69 ----------------------------------------
+  -- Solve :
+          min 1.25442e-32  max 0.347939
+Objective fct: 0.32013 Volume: 0.280665 Lagrange: 0.702997
+Iteration 70 ----------------------------------------
+  -- Solve :
+          min 1.25419e-32  max 0.347916
+Objective fct: 0.320119 Volume: 0.280664 Lagrange: 0.701882
+Iteration 71 ----------------------------------------
+  -- Solve :
+          min 1.25392e-32  max 0.347879
+Objective fct: 0.320111 Volume: 0.280664 Lagrange: 0.700254
+Iteration 72 ----------------------------------------
+  -- Solve :
+          min 1.25361e-32  max 0.347844
+Objective fct: 0.320106 Volume: 0.280664 Lagrange: 0.698875
+Iteration 73 ----------------------------------------
+  -- Solve :
+          min 1.25327e-32  max 0.347805
+Objective fct: 0.320102 Volume: 0.280664 Lagrange: 0.697521
+Iteration 74 ----------------------------------------
+  -- Solve :
+          min 1.25291e-32  max 0.347754
+Objective fct: 0.320101 Volume: 0.280664 Lagrange: 0.696127
+Iteration 75 ----------------------------------------
+  -- Solve :
+          min 1.25255e-32  max 0.347677
+Objective fct: 0.320101 Volume: 0.280664 Lagrange: 0.694757
+Iteration 76 ----------------------------------------
+  -- Solve :
+          min 1.25223e-32  max 0.347562
+Objective fct: 0.3201 Volume: 0.280664 Lagrange: 0.693559
+Iteration 77 ----------------------------------------
+  -- Solve :
+          min 1.25195e-32  max 0.347397
+Objective fct: 0.320095 Volume: 0.280664 Lagrange: 0.692659
+Iteration 78 ----------------------------------------
+  -- Solve :
+          min 1.25173e-32  max 0.347184
+Objective fct: 0.320084 Volume: 0.280664 Lagrange: 0.692067
+Iteration 79 ----------------------------------------
+  -- Solve :
+          min 1.25153e-32  max 0.347133
+Objective fct: 0.320068 Volume: 0.280664 Lagrange: 0.691666
+Iteration 80 ----------------------------------------
+  -- Solve :
+          min 1.25134e-32  max 0.3471
+Objective fct: 0.32005 Volume: 0.280664 Lagrange: 0.691339
+Iteration 81 ----------------------------------------
+  -- Solve :
+          min 1.25117e-32  max 0.347038
+Objective fct: 0.320031 Volume: 0.280664 Lagrange: 0.690959
+Iteration 82 ----------------------------------------
+  -- Solve :
+          min 1.25101e-32  max 0.346949
+Objective fct: 0.320014 Volume: 0.280664 Lagrange: 0.690527
+Iteration 83 ----------------------------------------
+  -- Solve :
+          min 1.25087e-32  max 0.346833
+Objective fct: 0.319996 Volume: 0.280665 Lagrange: 0.690063
+Iteration 84 ----------------------------------------
+  -- Solve :
+          min 1.25075e-32  max 0.346695
+Objective fct: 0.319978 Volume: 0.280664 Lagrange: 0.689684
+Iteration 85 ----------------------------------------
+  -- Solve :
+          min 1.25064e-32  max 0.346539
+Objective fct: 0.319955 Volume: 0.280664 Lagrange: 0.689368
+Iteration 86 ----------------------------------------
+  -- Solve :
+          min 1.25054e-32  max 0.34637
+Objective fct: 0.319929 Volume: 0.280664 Lagrange: 0.689095
+Iteration 87 ----------------------------------------
+  -- Solve :
+          min 1.25043e-32  max 0.346195
+Objective fct: 0.319904 Volume: 0.280664 Lagrange: 0.6888
+Iteration 88 ----------------------------------------
+  -- Solve :
+          min 1.25033e-32  max 0.346017
+Objective fct: 0.31988 Volume: 0.280664 Lagrange: 0.688422
+Iteration 89 ----------------------------------------
+  -- Solve :
+          min 1.25022e-32  max 0.345841
+Objective fct: 0.319859 Volume: 0.280664 Lagrange: 0.688002
+Iteration 90 ----------------------------------------
+  -- Solve :
+          min 1.25012e-32  max 0.345669
+Objective fct: 0.31984 Volume: 0.280665 Lagrange: 0.68754
+Iteration 91 ----------------------------------------
+  -- Solve :
+          min 1.25003e-32  max 0.345505
+Objective fct: 0.319823 Volume: 0.280664 Lagrange: 0.687141
+Iteration 92 ----------------------------------------
+  -- Solve :
+          min 1.24995e-32  max 0.345347
+Objective fct: 0.319804 Volume: 0.280664 Lagrange: 0.686774
+Iteration 93 ----------------------------------------
+  -- Solve :
+          min 1.24988e-32  max 0.345195
+Objective fct: 0.319783 Volume: 0.280664 Lagrange: 0.686449
+Iteration 94 ----------------------------------------
+  -- Solve :
+          min 1.2498e-32  max 0.345047
+Objective fct: 0.319761 Volume: 0.280664 Lagrange: 0.686114
+Iteration 95 ----------------------------------------
+  -- Solve :
+          min 1.24972e-32  max 0.344902
+Objective fct: 0.319739 Volume: 0.280665 Lagrange: 0.685695
+Iteration 96 ----------------------------------------
+  -- Solve :
+          min 1.24965e-32  max 0.344768
+Objective fct: 0.31972 Volume: 0.280664 Lagrange: 0.685214
+Iteration 97 ----------------------------------------
+  -- Solve :
+          min 1.24957e-32  max 0.344688
+Objective fct: 0.319704 Volume: 0.280664 Lagrange: 0.68465
+Iteration 98 ----------------------------------------
+  -- Solve :
+          min 1.24951e-32  max 0.344609
+Objective fct: 0.319691 Volume: 0.280664 Lagrange: 0.684023
+Iteration 99 ----------------------------------------
+  -- Solve :
+          min 1.24944e-32  max 0.34453
+Objective fct: 0.319678 Volume: 0.280664 Lagrange: 0.683459
+times: compile 0.701s, execution 43.177s,  mpirank:0
+ ######## We forget of deleting   -1013 Nb pointer,   0Bytes  ,  mpirank 0, memory leak =0
+ CodeAlloc : nb ptr  4230,  size :485712 mpirank: 0
+Ok: Normal End
+ try getConsole F:\github-clone\MAP562-homework\PC8\radiator.edp
