@@ -3,26 +3,20 @@ load "medit"
 
 verbosity = 0;
 
-int Gamma=0,GammaN=2,GammaD=1;
+int Gamma=0,GammaN=2,GammaD=1,GammaS=3;
 
 /* Border of the initial domain */
-border left1(t=0.0,0.1){x = 0.0; y = 1.0-t; label = GammaD;};
-border left2(t=0.1,0.9){x = 0.0; y = 1.0-t; label = Gamma;};
-border left3(t=0.9,1.0){x = 0.0; y = 1.0-t; label = GammaD;};
-border bottom(t=0.0,2.0){x=1.0/2.0*t; y= 0.2*t; label=Gamma;};
-border right(t=0.0,0.2){x = 1.0; y = 0.4+t; label = GammaN;};
-border top(t=0.0,2.0){x =1.0-1.0/2.0*t; y = 0.6+0.2*t; label = Gamma;};
-border h1 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.65+0.05*sin(t); label=Gamma;};
-border h2 (t=0.0,2.0*pi){x=0.1+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h3 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.35+0.05*sin(t); label=Gamma;};
-border h4 (t=0.0,2.0*pi){x=0.4+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h5 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.4+0.05*sin(t); label=Gamma;};
-border h6 (t=0.0,2.0*pi){x=0.75+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h7 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.6+0.05*sin(t); label=Gamma;};
+border left(t=1.0,0.0){x = 0.0; y = t; label = GammaS;};
+border bottom1(t=0,2.8){x=t; y= 0.0; label=Gamma;};
+border bottomD(t=2.8,3.0){x=t; y= 0.0; label=GammaD;};
+border right(t=0.0,1.0){x = 3.0; y = t; label = Gamma;};
+border top1(t=3.0,0.25){x =t; y = 1.0; label = Gamma;};
+border topN(t=0.25,0.0){x =t; y = 1.0; label = GammaN;};
 
+real Nm = 1;
 /* Create, then display initial mesh */
-mesh Th = buildmesh( left1(10) + left2(30) + left3(10) + bottom(100) + right(20) 
-           + top(100) + h1(-10) + h2(-10) + h3(-10) + h4(-10) + h5(-10) + h6(-10) + h7(-10) );
+mesh Th = buildmesh( left(10*Nm) + bottom1(28*Nm) + bottomD(2*Nm) + right(20*Nm) 
+           + top1(27.5*Nm) +topN(2.5*Nm));
 plot(Th,wait=0);
 
 plot(Th,wait=1);
@@ -45,7 +39,7 @@ real coefmin = 0.01;
 real step;
 real chkvoltri;
 real epsvoltri = 1.e-6;
-real tol = 0.01;
+real tol = 0.0001;
 real tgv = 1.e10;
 real vol = 0.0;
 real ell = 5.0;
@@ -79,11 +73,12 @@ problem elas([ux,uy],[vx,vy],solver=Crout) =
   int2d(Th)( 2.0*mu*e(ux,uy)'*e(vx,vy)
               + lambda*div(ux,uy)*div(vx,vy) )
   - int1d(Th,GammaN)(gx*vx+gy*vy)
-  + on(GammaD,ux=0.0,uy=0.0);
+  + on(GammaD,uy=0.0)
+  + on(GammaS,ux=0.0);
 
 /* Localization function for nodes to be frozen */
 func real locdir() {
-  if ( ( ( y < 0.1 || y > 0.9 ) && x < 0.01 ) || ( x > 1.99 ) ) return(1.0);
+  if  (  ( y > 0.99  && x < 0.25 ) || (y < 0.01 && x > 2.8) || x < 0.01  )  return(1.0);
   else return(0.0);
 }
 chidir = locdir();
@@ -105,7 +100,6 @@ problem velext2([grx,gry],[vx,vy],solver=Crout) =
  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
   + on(GammaN,GammaD,grx=0.0,gry=0.0);
-
 
 problem velext3([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy) 
@@ -173,7 +167,7 @@ for(int n=0; n<nit; n++){
     
     /* Adapt the mesh to the current solution of the elasticity system */
 
-    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.02);
+    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.08);
 
     hMax = hTriangle; // get sizes of all triangles
     meshsiz = hMax[].max; // get maximal triangle size

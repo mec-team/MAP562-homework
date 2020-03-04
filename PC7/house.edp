@@ -1,45 +1,72 @@
-/* Geometric optimization of the shape of a cantilever */
+//Homework 6 by Yucheng BU and Huihui ZHOU - Superellipse
+
+/* Geometric optimization of the shape of a house */
+/*
+Here we study the Question 1
+In the case where there's only one hole, the hole will become larger and larger
+and at the end occupy almost the whole domain. This is logical because the hole's
+temperature is not considered by the cost function. It is thus profitable to increse
+the size of the whole. However, the volume restriction does not seem to be well
+respected. It may need some other more advanced treatments. Fortunately, the 
+objevtive function generally decreases correctly.
+In the case where there's several holes, the situation is similar. The holes actually 
+tend to reunit as one large hole. However, it is remarkable that if we use the Crout 
+solver in the temperature and adjoint problems, the variation of the whole can become 
+very slow, the solution can become asymetric even if the initial condition is symetric, 
+and, when the wholes become large enough such that the boder between holes become very 
+narrow, the variation of the wholes stucks, so at the end the wholes may not be able 
+to occupy the whole domain as in the first case.
+*/
+
 load "medit"
 
 verbosity = 0;
 
-int Gamma=0,GammaN=2,GammaD=1;
-
 /* Border of the initial domain */
-border left1(t=0.0,0.1){x = 0.0; y = 1.0-t; label = GammaD;};
-border left2(t=0.1,0.9){x = 0.0; y = 1.0-t; label = Gamma;};
-border left3(t=0.9,1.0){x = 0.0; y = 1.0-t; label = GammaD;};
-border bottom(t=0.0,2.0){x=1.0/2.0*t; y= 0.2*t; label=Gamma;};
-border right(t=0.0,0.2){x = 1.0; y = 0.4+t; label = GammaN;};
-border top(t=0.0,2.0){x =1.0-1.0/2.0*t; y = 0.6+0.2*t; label = Gamma;};
-border h1 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.65+0.05*sin(t); label=Gamma;};
-border h2 (t=0.0,2.0*pi){x=0.1+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h3 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.35+0.05*sin(t); label=Gamma;};
-border h4 (t=0.0,2.0*pi){x=0.4+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h5 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.4+0.05*sin(t); label=Gamma;};
-border h6 (t=0.0,2.0*pi){x=0.75+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
-border h7 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.6+0.05*sin(t); label=Gamma;};
+
+int Gamma=0,GammaW=1;
+int NM = 15;
+
+real[int] xH = [0,2,2,1,0];
+real[int] yH = [0,0,1,2,1];
+int[int] numberH = NM*[2,1,1.4,1.4,1];
+
+border home(t=0,1; i){
+   int nexti = (i+1)%xH.n;
+   x = (1-t)*xH[i]+t*xH[nexti];
+   y = (1-t)*yH[i]+t*yH[nexti];
+   label = Gamma;
+}
+/*
+real r = 0.3;
+real cx = 1;
+real cy = 0.6;
+border Cercle(t=0,2*pi){
+   x = r*cos(t)+cx;
+   y = r*sin(t)+cy;
+   label = GammaW;
+}
+*/
+border h1 (t=0.0,2.0*pi){x=0.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h2 (t=0.0,2.0*pi){x=1.5+0.2*cos(t); y=0.5+0.2*sin(t); label=GammaW;};
+border h3 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=0.3+0.1*sin(t); label=GammaW;};
+border h4 (t=0.0,2.0*pi){x=1+0.1*cos(t); y=1.2+0.1*sin(t); label=GammaW;};
+
 
 /* Create, then display initial mesh */
-mesh Th = buildmesh( left1(10) + left2(30) + left3(10) + bottom(100) + right(20) 
-           + top(100) + h1(-10) + h2(-10) + h3(-10) + h4(-10) + h5(-10) + h6(-10) + h7(-10) );
-plot(Th,wait=0);
-
+//mesh Th = buildmesh( home(numberH) + Cercle(-NM*2*pi*r));
+mesh Th = buildmesh( home(numberH) + h1(-NM*2*pi*0.2) + h2(-NM*2*pi*0.2) + h3(-NM*2*pi*0.1) + h4(-NM*2*pi*0.2)  );
 plot(Th,wait=1);
 
 /* Parameters */
 real eps = 1.e-6;
-real gx = 0.0;
-real gy = -1.0;
-real mu = 0.3846;
-real lambda = 0.5769;
 real cply = 0.0;
 real obj = 0.0,newobj = 0.0;
 mesh Dh;
 int nit = 200;
 
 real gmax;
-real coef = 0.1;
+real coef = 0.2;
 real coefmax = 0.2;
 real coefmin = 0.01;
 real step;
@@ -49,85 +76,102 @@ real tol = 0.01;
 real tgv = 1.e10;
 real vol = 0.0;
 real ell = 5.0;
-real muel = 0.3846;
-real lambdael = 0.5769;
 string s; 
+real ux = 0, uy = 1;
+real T1 = 100, T0 = 20;
+
+real[int] vals(1);
+
+
 
 /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
 fespace Vh(Th,P1);
 fespace Vh0(Th,P0);
 
 /* Functions */
-Vh   ux,uy,vx,vy,grx,gry,ng,uox,uoy,chidir;
+Vh   T,phit,grx,gry,ng,Told,chidir,vx,vy;
+Vh   p,phip,pold;
 Vh0  gr0;
 
 Vh0 hMax = hTriangle; // get sizes of all triangles
 real meshsiz = hMax[].max; // get maximal triangle size
 real alpha = (2.0*meshsiz)^2; //regularization parameter
 
-macro div(ux,uy) (dx(ux)+dy(uy))//
 real sqrt2 = sqrt(2);
-macro e(ux,uy) [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]//
+
 macro grad(u) [dx(u),dy(u)]//
 macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)]//
-macro Aeueu(ux,uy) (2*mu*e(ux,uy)'*e(ux,uy)+lambda*div(ux,uy)*div(ux,uy))//
+
+/* Heat-Convection system */
+
+problem Temp(T,phit) =
+   int2d(Th)(grad(T)'*grad(phit))
+  +int2d(Th)([ux,uy]'*grad(T)*phit)
+  -int1d(Th,GammaW)((dx(T)*N.x+dy(T)*N.y)*phit)
+  +on(Gamma,T=0)
+  +on(GammaW,T=T1);
 
 
-/* Linearized elasticity system */
+/* Adjoint Problem */
 
-problem elas([ux,uy],[vx,vy],solver=Crout) =
-  int2d(Th)( 2.0*mu*e(ux,uy)'*e(vx,vy)
-              + lambda*div(ux,uy)*div(vx,vy) )
-  - int1d(Th,GammaN)(gx*vx+gy*vy)
-  + on(GammaD,ux=0.0,uy=0.0);
+problem Adjoint(p,phip) =
+   int2d(Th)(grad(p)'*grad(phip))
+  -int2d(Th)([ux,uy]'*grad(p)*phip)
+  +int2d(Th)(2*(T-T0)*phip)
+  +on(Gamma,p=0)
+  +on(GammaW,p=0); 
 
 /* Localization function for nodes to be frozen */
 func real locdir() {
-  if ( ( ( y < 0.1 || y > 0.9 ) && x < 0.01 ) || ( x > 1.99 ) ) return(1.0);
+  if ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
   else return(0.0);
 }
 chidir = locdir();
 
 /* Tangential derivative */
-macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y] // EOM
+macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y] // 
 
 /* Extension / regularization problem */
+/*
 problem velext([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
   + int1d(Th,Gamma)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
   + on(GammaD,GammaN,grx=0.0,gry=0.0);
+*/
 
 problem velext2([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(grad2(grx,gry)'*grad2(vx,vy)
 //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
-  + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  + on(Gamma,grx=0.0,gry=0.0);
 
-
+/*
 problem velext3([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy) 
-//  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
 +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
-  - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
-  + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  - int1d(Th,GammaW)( gr0*(N.x*vx+N.y*vy) )
+  + on(Gamma,grx=0.0,gry=0.0);
+*/
 
 
 /* Objective function */
-macro J() ( int1d(Th,GammaN)(gx*ux+gy*uy)) // EOM
+macro J() ( int2d(Th)((T - T0)^2) ) // EOM
 
-///  int1d(Th,GammaN)(Aeueu(ux,uy))  compliance...
 
 /* (Negative) shape gradient of J */
 macro dJ() {
-  gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dx(ux)+dy(uy)) - ell;
+  gr0 = -((T - T0)^2-grad(T)'*[N.x, N.y]*grad(p)'*[N.x, N.y])-ell;
   velext2;
 } // EOM
 
 /* Initialization */
-elas;
+Temp;
+Adjoint;
+vals[0]=J;
 
 /* Initial value of the objective function */
 vol     = Th.area;
@@ -155,9 +199,10 @@ for(int n=0; n<nit; n++){
     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
 
   /* Resolution of the state equation */
-  uox = ux;
-  uoy = uy;
-  elas;
+  Told = T;
+  pold = p;
+  Temp;
+  Adjoint;
   
   /* Evaluation of the new objective function */
   vol    = Th.area;
@@ -173,7 +218,7 @@ for(int n=0; n<nit; n++){
     
     /* Adapt the mesh to the current solution of the elasticity system */
 
-    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.02);
+    Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.1);
 
     hMax = hTriangle; // get sizes of all triangles
     meshsiz = hMax[].max; // get maximal triangle size
@@ -181,15 +226,19 @@ for(int n=0; n<nit; n++){
     alpha = (2.0*meshsiz)^2;
     chidir = locdir();
     plot(Th,wait=0);
+    vals = [vals,newobj];
   }
   else {
     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
     coef  = max(coefmin,0.6*coef);
-    ux    = uox;
-    uy    = uoy;
+    T = Told;
+    p = pold;
   }
 }
 
 /* Print mesh and solution */
 //savemesh(Th,"Cantilever.mesh");
 //savesol("Cantilever.sol",Th,[ux,uy]);
+
+real[int] dis = 1:vals.n;
+plot([dis,vals],cmm="Evoluion of cost function");

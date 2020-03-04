@@ -83,7 +83,7 @@ problem elas([ux,uy],[vx,vy],solver=Crout) =
 
 /* Localization function for nodes to be frozen */
 func real locdir() {
-  if ( ( ( y < 0.1 || y > 0.9 ) && x < 0.01 ) || ( x > 1.99 ) ) return(1.0);
+  if ( ( ( x < y - 0.99) || ( x > 2.99 - y) || ( x < 0.01 ) || ( x > 1.99 ) || ( y < 0.01 ) ) return(1.0);
   else return(0.0);
 }
 chidir = locdir();
@@ -106,7 +106,6 @@ problem velext2([grx,gry],[vx,vy],solver=Crout) =
   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
   + on(GammaN,GammaD,grx=0.0,gry=0.0);
 
-
 problem velext3([grx,gry],[vx,vy],solver=Crout) =
   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy) 
 //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
@@ -116,18 +115,17 @@ problem velext3([grx,gry],[vx,vy],solver=Crout) =
 
 
 /* Objective function */
-macro J() ( int1d(Th,GammaN)(gx*ux+gy*uy)) // EOM
+macro J() ( int2d(Th)((T - T0)^2) ) // EOM
 
-///  int1d(Th,GammaN)(Aeueu(ux,uy))  compliance...
 
 /* (Negative) shape gradient of J */
 macro dJ() {
-  gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dx(ux)+dy(uy)) - ell;
+  gr0 = -((T - T0)^2-grad(T)*[N.x, N.y]*grad(p)*[N.x, N.y]);
   velext2;
 } // EOM
 
 /* Initialization */
-elas;
+Temp;
 
 /* Initial value of the objective function */
 vol     = Th.area;

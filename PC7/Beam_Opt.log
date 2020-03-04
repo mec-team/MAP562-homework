@@ -1,0 +1,545 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : /* Geometric optimization of the shape of a cantilever */
+    2 : load "medit"(load: loadLibary D:\Softwares\FreeFem++\\.\medit = 0)
+    3 :
+    4 : verbosity = 0;
+    5 :
+    6 : int Gamma=0,GammaN=2,GammaD=1,GammaS=3;
+    7 :
+    8 : /* Border of the initial domain */
+    9 : border left(t=1.0,0.0){x = 0.0; y = t; label = GammaS;};
+   10 : border bottom1(t=0,2.8){x=t; y= 0.0; label=Gamma;};
+   11 : border bottomD(t=2.8,3.0){x=t; y= 0.0; label=GammaD;};
+   12 : border right(t=0.0,1.0){x = 3.0; y = t; label = Gamma;};
+   13 : border top1(t=3.0,0.25){x =t; y = 1.0; label = Gamma;};
+   14 : border topN(t=0.25,0.0){x =t; y = 1.0; label = GammaN;};
+   15 :
+   16 : real Nm = 1;
+   17 : /* Create, then display initial mesh */
+   18 : mesh Th = buildmesh( left(10*Nm) + bottom1(28*Nm) + bottomD(2*Nm) + right(20*Nm)
+   19 :            + top1(27.5*Nm) +topN(2.5*Nm));
+   20 : plot(Th,wait=0);
+   21 :
+   22 : plot(Th,wait=1);
+   23 :
+   24 : /* Parameters */
+   25 : real eps = 1.e-6;
+   26 : real gx = 0.0;
+   27 : real gy = -1.0;
+   28 : real mu = 0.3846;
+   29 : real lambda = 0.5769;
+   30 : real cply = 0.0;
+   31 : real obj = 0.0,newobj = 0.0;
+   32 : mesh Dh;
+   33 : int nit = 200;
+   34 :
+   35 : real gmax;
+   36 : real coef = 0.1;
+   37 : real coefmax = 0.2;
+   38 : real coefmin = 0.01;
+   39 : real step;
+   40 : real chkvoltri;
+   41 : real epsvoltri = 1.e-6;
+   42 : real tol = 0.0001;
+   43 : real tgv = 1.e10;
+ *** Warning  The identifier tgv hide a Global identifier
+ 
+   44 : real vol = 0.0;
+   45 : real ell = 5.0;
+   46 : real muel = 0.3846;
+   47 : real lambdael = 0.5769;
+   48 : string s;
+   49 :
+   50 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
+   51 : fespace Vh(Th,P1);
+   52 : fespace Vh0(Th,P0);
+   53 :
+   54 : /* Functions */
+   55 : Vh   ux,uy,vx,vy,grx,gry,ng,uox,uoy,chidir;
+   56 : Vh0  gr0;
+   57 :
+   58 : Vh0 hMax = hTriangle; // get sizes of all triangles
+   59 : real meshsiz = hMax[].max; // get maximal triangle size
+   60 : real alpha = (2.0*meshsiz)^2; //regularization parameter
+   61 :
+   62 : macro div(ux,uy) (dx(ux)+dy(uy)) )  //
+   63 : real sqrt2 = sqrt(2);
+   64 : macro e(ux,uy) [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2] )  //
+   65 : macro grad(u) [dx(u),dy(u)] )  //
+   66 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
+   67 : macro Aeueu(ux,uy) (2*mu*e(ux,uy)'*e(ux,uy)+lambda*div(ux,uy)*div(ux,uy)) )  //
+   68 :
+   69 :
+   70 : /* Linearized elasticity system */
+   71 :
+   72 : problem elas([ux,uy],[vx,vy],solver=Crout) =
+   73 :   int2d(Th)( 2.0*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(vx,vy)  [dx(vx),dy(vy),(dx(vy)+dy(vx))/sqrt2]
+   74 :               + lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(vx,vy)  (dx(vx)+dy(vy)) )
+   75 :   - int1d(Th,GammaN)(gx*vx+gy*vy)
+   76 :   + on(GammaD,uy=0.0)
+   77 :   + on(GammaS,ux=0.0);
+   78 :
+   79 : /* Localization function for nodes to be frozen */
+   80 : func real locdir() {
+   81 :   if  (  ( y > 0.99  && x < 0.25 ) || (y < 0.01 && x > 2.8) || x < 0.01  )  return(1.0);
+   82 :   else return(0.0);
+   83 : }
+   84 : chidir = locdir();
+   85 :
+   86 : /* Tangential derivative */
+   87 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  // EOM
+   88 :
+   89 : /* Extension / regularization problem */
+   90 : problem velext([grx,gry],[vx,vy],solver=Crout) =
+   91 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
+   92 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+   93 :   + int1d(Th,Gamma)( alpha*(Dt(grx)   [dx(grx)-(dx(grx)*N.x+dy(grx)*N.y)*N.x,dy(grx)-(dx(grx)*N.x+dy(grx)*N.y)*N.y] '*Dt(vx)   [dx(vx)-(dx(vx)*N.x+dy(vx)*N.y)*N.x,dy(vx)-(dx(vx)*N.x+dy(vx)*N.y)*N.y]  + Dt(gry)   [dx(gry)-(dx(gry)*N.x+dy(gry)*N.y)*N.x,dy(gry)-(dx(gry)*N.x+dy(gry)*N.y)*N.y] '*Dt(vy)   [dx(vy)-(dx(vy)*N.x+dy(vy)*N.y)*N.x,dy(vy)-(dx(vy)*N.x+dy(vy)*N.y)*N.y] ) )
+   94 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+   95 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
+   96 :
+   97 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
+   98 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
+   99 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  100 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  101 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  102 :   + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  103 :
+  104 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
+  105 :   int2d(Th)(2*e(grx,gry)  [dx(grx),dy(gry),(dx(gry)+dy(grx))/sqrt2]'*e(vx,vy)  [dx(vx),dy(vy),(dx(vy)+dy(vx))/sqrt2]+0.5*div(grx,gry)  (dx(grx)+dy(gry))*div(vx,vy)  (dx(vx)+dy(vy))
+  106 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  107 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  108 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  109 :   + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  110 :
+  111 :
+  112 : /* Objective function */
+  113 : macro J() ( int1d(Th,GammaN)(gx*ux+gy*uy)) // EOM
+  114 :
+  115 : ///  int1d(Th,GammaN)(Aeueu(ux,uy))  compliance...
+  116 :
+  117 : /* (Negative) shape gradient of J */
+  118 : macro dJ() {
+  119 #   gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dx(ux)+dy(uy)) - ell;
+  120 #   velext2;
+  121 # } // EOM
+  122 :
+  123 : /* Initialization */
+  124 : elas;
+  125 :
+  126 : /* Initial value of the objective function */
+  127 : vol     = Th.area;
+  128 : obj     = J    ( int1d(Th,GammaN)(gx*ux+gy*uy))  + ell*vol;
+  129 :
+  130 : /* Main optimization loop */
+  131 : for(int n=0; n<nit; n++){
+  132 :
+  133 :   /* Computation of the shape gradient as a P1 function and size of the time step */
+  134 :   dJ
+  119 @
+  120 @
+  121 @   {
+  119 @   gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dx(ux)+dy(uy)) - ell;
+  120 @   velext2;
+  121 @ } ;
+  135 :   ng = sqrt(grx*grx+gry*gry);
+  136 :   gmax = ng[].max;
+  137 :   step = coef*meshsiz / (eps^2+gmax);
+  138 :
+  139 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
+with a smaller step */
+  140 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
+  141 :
+  142 :   if( chkvoltri < epsvoltri ) {
+  143 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
+  144 :     coef *= 0.5;
+  145 :     continue;
+  146 :   }
+  147 :
+  148 :   /* Else, effectively move the new mesh */
+  149 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
+  150 :
+  151 :   /* Resolution of the state equation */
+  152 :   uox = ux;
+  153 :   uoy = uy;
+  154 :   elas;
+  155 :
+  156 :   /* Evaluation of the new objective function */
+  157 :   vol    = Th.area;
+  158 :   newobj = J    ( int1d(Th,GammaN)(gx*ux+gy*uy))  + ell*vol;
+  159 :
+  160 :   /* Decision */
+  161 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
+  162 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
+  163 :     cout<<"Volume: " << vol << endl;
+  164 :     obj   = newobj;
+  165 :     coef  = min(coefmax,1.02*coef);
+  166 :     Th    = Dh;
+  167 :
+  168 :     /* Adapt the mesh to the current solution of the elasticity system */
+  169 :
+  170 :     Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.08);
+  171 :
+  172 :     hMax = hTriangle; // get sizes of all triangles
+  173 :     meshsiz = hMax[].max; // get maximal triangle size
+  174 :     cout << meshsiz << endl;
+  175 :     alpha = (2.0*meshsiz)^2;
+  176 :     chidir = locdir();
+  177 :     plot(Th,wait=0);
+  178 :   }
+  179 :   else {
+  180 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
+  181 :     coef  = max(coefmin,0.6*coef);
+  182 :     ux    = uox;
+  183 :     uy    = uoy;
+  184 :   }
+  185 : }
+  186 :
+  187 : /* Print mesh and solution */
+  188 : //savemesh(Th,"Cantilever.mesh");
+  189 : //savesol("Cantilever.sol",Th,[ux,uy]);
+  190 :  sizestack + 1024 =19312  ( 18288 )
+ 
+Iteration 0 accepted; objective: 19.8647 ---> 19.8647
+Volume: 3
+0.112955
+Iteration 1 accepted; objective: 19.8647 ---> 19.8438
+Volume: 2.97574
+0.112885
+Iteration 2 accepted; objective: 19.8438 ---> 19.7648
+Volume: 2.95705
+0.113088
+Iteration 3 accepted; objective: 19.7648 ---> 19.6725
+Volume: 2.94039
+0.111715
+Iteration 4 accepted; objective: 19.6725 ---> 19.587
+Volume: 2.92363
+0.112056
+Iteration 5 accepted; objective: 19.587 ---> 19.501
+Volume: 2.90663
+0.112453
+Iteration 6 accepted; objective: 19.501 ---> 19.4067
+Volume: 2.88875
+0.112922
+Iteration 7 accepted; objective: 19.4067 ---> 19.3017
+Volume: 2.86972
+0.115461
+Iteration 8 accepted; objective: 19.3017 ---> 19.2126
+Volume: 2.85058
+0.110635
+Iteration 9 accepted; objective: 19.2126 ---> 19.1194
+Volume: 2.83205
+0.113011
+Iteration 10 accepted; objective: 19.1194 ---> 19.0309
+Volume: 2.81399
+0.110802
+Iteration 11 accepted; objective: 19.0309 ---> 18.9417
+Volume: 2.79386
+0.110786
+Iteration 12 accepted; objective: 18.9417 ---> 18.8505
+Volume: 2.77526
+0.110876
+Iteration 13 accepted; objective: 18.8505 ---> 18.7561
+Volume: 2.75679
+0.111141
+Iteration 14 accepted; objective: 18.7561 ---> 18.6678
+Volume: 2.73813
+0.111457
+Iteration 15 accepted; objective: 18.6678 ---> 18.5803
+Volume: 2.71823
+0.111759
+Iteration 16 accepted; objective: 18.5803 ---> 18.4924
+Volume: 2.69927
+0.112035
+Iteration 17 accepted; objective: 18.4924 ---> 18.4047
+Volume: 2.68023
+0.112219
+Iteration 18 accepted; objective: 18.4047 ---> 18.3141
+Volume: 2.66096
+0.112275
+Iteration 19 accepted; objective: 18.3141 ---> 18.2292
+Volume: 2.64138
+0.11235
+Iteration 20 accepted; objective: 18.2292 ---> 18.1383
+Volume: 2.61996
+0.112465
+Iteration 21 accepted; objective: 18.1383 ---> 18.0619
+Volume: 2.60053
+0.112569
+Iteration 22 accepted; objective: 18.0619 ---> 17.9794
+Volume: 2.5811
+0.112716
+Iteration 23 accepted; objective: 17.9794 ---> 17.8998
+Volume: 2.56165
+0.11284
+Iteration 24 accepted; objective: 17.8998 ---> 17.8354
+Volume: 2.5421
+0.112972
+Iteration 25 accepted; objective: 17.8354 ---> 17.7463
+Volume: 2.52264
+0.113136
+Iteration 26 accepted; objective: 17.7463 ---> 17.6733
+Volume: 2.50171
+0.113238
+Iteration 27 accepted; objective: 17.6733 ---> 17.6015
+Volume: 2.48251
+0.113347
+Iteration 28 accepted; objective: 17.6015 ---> 17.5294
+Volume: 2.46324
+0.113423
+Iteration 29 accepted; objective: 17.5294 ---> 17.4595
+Volume: 2.44438
+0.113505
+Iteration 30 accepted; objective: 17.4595 ---> 17.3967
+Volume: 2.42516
+0.113572
+Iteration 31 accepted; objective: 17.3967 ---> 17.3314
+Volume: 2.40668
+0.113637
+Iteration 32 accepted; objective: 17.3314 ---> 17.27
+Volume: 2.38822
+0.11369
+Iteration 33 accepted; objective: 17.27 ---> 17.2137
+Volume: 2.36871
+0.113698
+Iteration 34 accepted; objective: 17.2137 ---> 17.1571
+Volume: 2.35133
+0.11371
+Iteration 35 accepted; objective: 17.1571 ---> 17.1029
+Volume: 2.33465
+0.113728
+Iteration 36 accepted; objective: 17.1029 ---> 17.0543
+Volume: 2.31762
+0.113751
+Iteration 37 accepted; objective: 17.0543 ---> 17.0122
+Volume: 2.30204
+0.113762
+Iteration 38 accepted; objective: 17.0122 ---> 16.9736
+Volume: 2.28833
+0.113733
+Iteration 39 accepted; objective: 16.9736 ---> 16.9415
+Volume: 2.26998
+0.11374
+Iteration 40 accepted; objective: 16.9415 ---> 16.9148
+Volume: 2.25399
+0.113749
+Iteration 41 accepted; objective: 16.9148 ---> 16.861
+Volume: 2.24274
+0.113749
+Iteration 42 accepted; objective: 16.861 ---> 16.8359
+Volume: 2.23604
+0.115803
+Iteration 43 accepted; objective: 16.8359 ---> 16.8142
+Volume: 2.22891
+0.113719
+Iteration 44 accepted; objective: 16.8142 ---> 16.8139
+Volume: 2.22153
+0.113014
+Iteration 45 accepted; objective: 16.8139 ---> 16.8017
+Volume: 2.21333
+0.114113
+Iteration 46 accepted; objective: 16.8017 ---> 16.7945
+Volume: 2.203
+0.114371
+Iteration 47 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 48 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 49 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 50 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 51 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 52 rejected; objective: 16.7945 v.s. 16.8056
+Iteration 53 accepted; objective: 16.7945 ---> 16.8056
+Volume: 2.1925
+0.114337
+Iteration 54 accepted; objective: 16.8056 ---> 16.7925
+Volume: 2.19274
+0.114284
+Iteration 55 rejected; objective: 16.7925 v.s. 16.8172
+Iteration 56 accepted; objective: 16.7925 ---> 16.8172
+Volume: 2.193
+0.114215
+Iteration 57 accepted; objective: 16.8172 ---> 16.807
+Volume: 2.19339
+0.114213
+Iteration 58 rejected; objective: 16.807 v.s. 16.8093
+Iteration 59 accepted; objective: 16.807 ---> 16.8093
+Volume: 2.19375
+0.114162
+Iteration 60 accepted; objective: 16.8093 ---> 16.8105
+Volume: 2.19422
+0.11413
+Iteration 61 accepted; objective: 16.8105 ---> 16.8114
+Volume: 2.1945
+0.114146
+Iteration 62 accepted; objective: 16.8114 ---> 16.8111
+Volume: 2.19425
+0.114146
+Iteration 63 accepted; objective: 16.8111 ---> 16.8109
+Volume: 2.19415
+0.114105
+Iteration 64 accepted; objective: 16.8109 ---> 16.7902
+Volume: 2.19465
+0.114054
+Iteration 65 rejected; objective: 16.7902 v.s. 16.793
+Iteration 66 accepted; objective: 16.7902 ---> 16.793
+Volume: 2.19525
+0.114002
+Iteration 67 rejected; objective: 16.793 v.s. 16.8127
+Iteration 68 accepted; objective: 16.793 ---> 16.8127
+Volume: 2.19557
+0.11396
+Iteration 69 accepted; objective: 16.8127 ---> 16.7925
+Volume: 2.19587
+0.113946
+Iteration 70 accepted; objective: 16.7925 ---> 16.7918
+Volume: 2.19633
+0.113923
+Iteration 71 accepted; objective: 16.7918 ---> 16.7905
+Volume: 2.19661
+0.113909
+Iteration 72 rejected; objective: 16.7905 v.s. 16.8113
+Iteration 73 accepted; objective: 16.7905 ---> 16.8113
+Volume: 2.19688
+0.113894
+Iteration 74 accepted; objective: 16.8113 ---> 16.7828
+Volume: 2.19708
+0.113912
+Iteration 75 rejected; objective: 16.7828 v.s. 16.7897
+Iteration 76 accepted; objective: 16.7828 ---> 16.7897
+Volume: 2.19748
+0.113907
+Iteration 77 rejected; objective: 16.7897 v.s. 16.8063
+Iteration 78 accepted; objective: 16.7897 ---> 16.8063
+Volume: 2.19756
+0.113914
+Iteration 79 accepted; objective: 16.8063 ---> 16.7823
+Volume: 2.19769
+0.113963
+Iteration 80 rejected; objective: 16.7823 v.s. 16.79
+Iteration 81 accepted; objective: 16.7823 ---> 16.79
+Volume: 2.19801
+0.113978
+Iteration 82 rejected; objective: 16.79 v.s. 16.8136
+Iteration 83 accepted; objective: 16.79 ---> 16.8136
+Volume: 2.19806
+0.114011
+Iteration 84 accepted; objective: 16.8136 ---> 16.8073
+Volume: 2.19819
+0.114027
+Iteration 85 accepted; objective: 16.8073 ---> 16.8069
+Volume: 2.19766
+0.114135
+Iteration 86 accepted; objective: 16.8069 ---> 16.8074
+Volume: 2.19804
+0.114256
+Iteration 87 accepted; objective: 16.8074 ---> 16.8077
+Volume: 2.19855
+0.114382
+Iteration 88 accepted; objective: 16.8077 ---> 16.8081
+Volume: 2.19902
+0.114435
+Iteration 89 accepted; objective: 16.8081 ---> 16.8083
+Volume: 2.19849
+0.114583
+Iteration 90 accepted; objective: 16.8083 ---> 16.8077
+Volume: 2.1989
+0.114749
+Iteration 91 accepted; objective: 16.8077 ---> 16.7854
+Volume: 2.19946
+0.11484
+Iteration 92 accepted; objective: 16.7854 ---> 16.7853
+Volume: 2.19983
+0.114975
+Iteration 93 accepted; objective: 16.7853 ---> 16.7831
+Volume: 2.19991
+0.115013
+Iteration 94 rejected; objective: 16.7831 v.s. 16.7916
+Iteration 95 accepted; objective: 16.7831 ---> 16.7916
+Volume: 2.19926
+0.115026
+Iteration 96 rejected; objective: 16.7916 v.s. 16.8059
+Iteration 97 accepted; objective: 16.7916 ---> 16.8059
+Volume: 2.19953
+0.115043
+Iteration 98 accepted; objective: 16.8059 ---> 16.8015
+Volume: 2.19979
+0.108991
+Iteration 99 rejected; objective: 16.8015 v.s. 16.8106
+Iteration 100 accepted; objective: 16.8015 ---> 16.8106
+Volume: 2.19999
+0.108298
+Iteration 101 rejected; objective: 16.8106 v.s. 16.8257
+Iteration 102 accepted; objective: 16.8106 ---> 16.8257
+Volume: 2.20019
+0.107878
+Iteration 103 rejected; objective: 16.8257 v.s. 16.828
+Iteration 104 accepted; objective: 16.8257 ---> 16.828
+Volume: 2.20037
+0.107601
+Iteration 105 accepted; objective: 16.828 ---> 16.8272
+Volume: 2.20051
+0.107502
+Iteration 106 accepted; objective: 16.8272 ---> 16.8261
+Volume: 2.20074
+0.115448
+Iteration 107 accepted; objective: 16.8261 ---> 16.8136
+Volume: 2.2009
+0.115345
+Iteration 108 accepted; objective: 16.8136 ---> 16.8112
+Volume: 2.20104
+0.109011
+Iteration 109 rejected; objective: 16.8112 v.s. 16.8302
+Iteration 110 accepted; objective: 16.8112 ---> 16.8302
+Volume: 2.20111
+0.115392
+Iteration 111 accepted; objective: 16.8302 ---> 16.823
+Volume: 2.20117
+0.115332
+Iteration 112 rejected; objective: 16.823 v.s. 16.8308
+Iteration 113 accepted; objective: 16.823 ---> 16.8308
+Volume: 2.20151
+0.115163
+Iteration 114 accepted; objective: 16.8308 ---> 16.8221
+Volume: 2.20169
+0.115005
+Iteration 115 rejected; objective: 16.8221 v.s. 16.8297
+Iteration 116 accepted; objective: 16.8221 ---> 16.8297
+Volume: 2.2021
+0.114851
+Iteration 117 accepted; objective: 16.8297 ---> 16.8224
+Volume: 2.20231
+0.114722
+Iteration 118 accepted; objective: 16.8224 ---> 16.815
+Volume: 2.20269
+0.114505
+Iteration 119 accepted; objective: 16.815 ---> 16.8123
+Volume: 2.20275
+0.114533
+Iteration 120 rejected; objective: 16.8123 v.s. 16.8208
+Iteration 121 accepted; objective: 16.8123 ---> 16.8208
+Volume: 2.20279
+0.114548
+Iteration 122 accepted; objective: 16.8208 ---> 16.807
+Volume: 2.20271
+0.114593
+Iteration 123 rejected; objective: 16.807 v.s. 16.8264
+Iteration 124 accepted; objective: 16.807 ---> 16.8264
+Volume: 2.20206
+0.114615
+Iteration 125 accepted; objective: 16.8264 ---> 16.8203
+Volume: 2.20235
+0.114837
+Iteration 126 rejected; objective: 16.8203 v.s. 16.8282
+Iteration 127 accepted; objective: 16.8203 ---> 16.8282
+Volume: 2.203
+0.114865
+Iteration 128 accepted; objective: 16.8282 ---> 16.8209
+Volume: 2.20336
+ We lost 1  other edges 102
+ Fatal error in the mesh generator 1100
+  current line = 170
+Meshing error: Bamg
+ number : 1100,
+Meshing error: Bamg
+ number : 1100,
+ err code 5 ,  mpirank 0
+ try getConsole D:\Documents\X\3A\P2\MAP562 Structure Optimisation\Homework\MAP562-homework\PC7\Beam_Opt.edp

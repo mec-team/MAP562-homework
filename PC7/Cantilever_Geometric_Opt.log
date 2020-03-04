@@ -1,0 +1,278 @@
+-- FreeFem++ v4.400003 (jeu. 12 déc. 2019 13:58:15 - git v4.4-3-9-gc37e08e1)
+ Load: lg_fem lg_mesh lg_mesh3 eigenvalue
+    1 : /* Geometric optimization of the shape of a cantilever */
+    2 : load "medit"(load: loadLibary D:\Softwares\FreeFem++\\.\medit = 0)
+    3 :
+    4 : verbosity = 0;
+    5 :
+    6 : int Gamma=0,GammaN=2,GammaD=1;
+    7 :
+    8 : /* Border of the initial domain */
+    9 : border left1(t=0.0,0.1){x = 0.0; y = 1.0-t; label = GammaD;};
+   10 : border left2(t=0.1,0.9){x = 0.0; y = 1.0-t; label = Gamma;};
+   11 : border left3(t=0.9,1.0){x = 0.0; y = 1.0-t; label = GammaD;};
+   12 : border bottom(t=0.0,2.0){x=1.0/2.0*t; y= 0.2*t; label=Gamma;};
+   13 : border right(t=0.0,0.2){x = 1.0; y = 0.4+t; label = GammaN;};
+   14 : border top(t=0.0,2.0){x =1.0-1.0/2.0*t; y = 0.6+0.2*t; label = Gamma;};
+   15 : border h1 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.65+0.05*sin(t); label=Gamma;};
+   16 : border h2 (t=0.0,2.0*pi){x=0.1+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
+   17 : border h3 (t=0.0,2.0*pi){x=0.2+0.05*cos(t); y=0.35+0.05*sin(t); label=Gamma;};
+   18 : border h4 (t=0.0,2.0*pi){x=0.4+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
+   19 : border h5 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.4+0.05*sin(t); label=Gamma;};
+   20 : border h6 (t=0.0,2.0*pi){x=0.75+0.05*cos(t); y=0.5+0.05*sin(t); label=Gamma;};
+   21 : border h7 (t=0.0,2.0*pi){x=0.6+0.05*cos(t); y=0.6+0.05*sin(t); label=Gamma;};
+   22 :
+   23 : /* Create, then display initial mesh */
+   24 : mesh Th = buildmesh( left1(10) + left2(30) + left3(10) + bottom(100) + right(20)
+   25 :            + top(100) + h1(-10) + h2(-10) + h3(-10) + h4(-10) + h5(-10) + h6(-10) + h7(-10) );
+   26 : plot(Th,wait=0);
+   27 :
+   28 : plot(Th,wait=1);
+   29 :
+   30 : /* Parameters */
+   31 : real eps = 1.e-6;
+   32 : real gx = 0.0;
+   33 : real gy = -1.0;
+   34 : real mu = 0.3846;
+   35 : real lambda = 0.5769;
+   36 : real cply = 0.0;
+   37 : real obj = 0.0,newobj = 0.0;
+   38 : mesh Dh;
+   39 : int nit = 200;
+   40 :
+   41 : real gmax;
+   42 : real coef = 0.1;
+   43 : real coefmax = 0.2;
+   44 : real coefmin = 0.01;
+   45 : real step;
+   46 : real chkvoltri;
+   47 : real epsvoltri = 1.e-6;
+   48 : real tol = 0.01;
+   49 : real tgv = 1.e10;
+ *** Warning  The identifier tgv hide a Global identifier
+ 
+   50 : real vol = 0.0;
+   51 : real ell = 5.0;
+   52 : real muel = 0.3846;
+   53 : real lambdael = 0.5769;
+   54 : string s;
+   55 :
+   56 : /* Finite element spaces: P1 elements for the resolution of the linearized elasticity system */
+   57 : fespace Vh(Th,P1);
+   58 : fespace Vh0(Th,P0);
+   59 :
+   60 : /* Functions */
+   61 : Vh   ux,uy,vx,vy,grx,gry,ng,uox,uoy,chidir;
+   62 : Vh0  gr0;
+   63 :
+   64 : Vh0 hMax = hTriangle; // get sizes of all triangles
+   65 : real meshsiz = hMax[].max; // get maximal triangle size
+   66 : real alpha = (2.0*meshsiz)^2; //regularization parameter
+   67 :
+   68 : macro div(ux,uy) (dx(ux)+dy(uy)) )  //
+   69 : real sqrt2 = sqrt(2);
+   70 : macro e(ux,uy) [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2] )  //
+   71 : macro grad(u) [dx(u),dy(u)] )  //
+   72 : macro grad2(ux,uy) [dx(ux),dy(ux),dx(uy),dy(uy)] )  //
+   73 : macro Aeueu(ux,uy) (2*mu*e(ux,uy)'*e(ux,uy)+lambda*div(ux,uy)*div(ux,uy)) )  //
+   74 :
+   75 :
+   76 : /* Linearized elasticity system */
+   77 :
+   78 : problem elas([ux,uy],[vx,vy],solver=Crout) =
+   79 :   int2d(Th)( 2.0*mu*e(ux,uy)  [dx(ux),dy(uy),(dx(uy)+dy(ux))/sqrt2]'*e(vx,vy)  [dx(vx),dy(vy),(dx(vy)+dy(vx))/sqprt2]
+   80 :               + lambda*div(ux,uy)  (dx(ux)+dy(uy))*div(vx,vy)  (dx(vx)+dy(vy)) )
+   81 :   - int1d(Th,GammaN)(gx*vx+gy*vy)
+   82 :   + on(GammaD,ux=0.0,uy=0.0);
+   83 :
+   84 : /* Localization function for nodes to be frozen */
+   85 : func real locdir() {
+   86 :   if ( ( ( y < 0.1 || y > 0.9 ) && x < 0.01 ) || ( x > 1.99 ) ) return(1.0);
+   87 :   else return(0.0);
+   88 : }
+   89 : chidir = locdir();
+   90 :
+   91 : /* Tangential derivative */
+   92 : macro Dt(u) [dx(u)-(dx(u)*N.x+dy(u)*N.y)*N.x,dy(u)-(dx(u)*N.x+dy(u)*N.y)*N.y]  )  // EOM
+   93 :
+   94 : /* Extension / regularization problem */
+   95 : problem velext([grx,gry],[vx,vy],solver=Crout) =
+   96 :   int2d(Th)(mu*(2.0*dx(grx)*dx(vx) + (dx(gry)+dy(grx))*(dx(vy)+dy(vx)) + 2.0*dy(gry)*dy(vy))
+   97 :                 + lambda*(dx(grx)+dy(gry))*(dx(vx)+dy(vy)) + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+   98 :   + int1d(Th,Gamma)( alpha*(Dt(grx)   [dx(grx)-(dx(grx)*N.x+dy(grx)*N.y)*N.x,dy(grx)-(dx(grx)*N.x+dy(grx)*N.y)*Np.y] '*Dt(vx)   [dx(vx)-(dx(vx)*N.x+dy(vx)*N.y)*N.x,dy(vx)-(dx(vx)*N.x+dy(vx)*N.y)*N.y]  + Dt(gry)   [dx(gry)-(dx(gry)*N.px+dy(gry)*N.y)*N.x,dy(gry)-(dx(gry)*N.x+dy(gry)*N.y)*N.y] '*Dt(vy)   [dx(vy)-(dx(vy)*N.x+dy(vy)*N.y)*N.x,dy(vy)-(dx(vy)*pN.x+dy(vy)*N.y)*N.y] ) )
+   99 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  100 :   + on(GammaD,GammaN,grx=0.0,gry=0.0);
+  101 :
+  102 : problem velext2([grx,gry],[vx,vy],solver=Crout) =
+  103 :   int2d(Th)(grad2(grx,gry)  [dx(grx),dy(grx),dx(gry),dy(gry)]'*grad2(vx,vy)  [dx(vx),dy(vx),dx(vy),dy(vy)]
+  104 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  105 :  + (1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  106 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  107 :   + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  108 :
+  109 : /*
+  110 : problem velext3([grx,gry],[vx,vy],solver=Crout) =
+  111 :   int2d(Th)(2*e(grx,gry)'*e(vx,vy)+0.5*div(grx,gry)*div(vx,vy)
+  112 : //  + int1d(Th,omega)( alpha*(Dt(grx)'*Dt(vx) + Dt(gry)'*Dt(vy)) )
+  113 : +(1.0+chidir*tgv)*(grx*vx+gry*vy) )
+  114 :   - int1d(Th,Gamma)( gr0*(N.x*vx+N.y*vy) )
+  115 :   + on(GammaN,GammaD,grx=0.0,gry=0.0);
+  116 : */
+  117 :
+  118 : /* Objective function */
+  119 : macro J() ( int1d(Th,GammaN)(gx*ux+gy*uy)) // EOM
+  120 :
+  121 : ///  int1d(Th,GammaN)(Aeueu(ux,uy))  compliance...
+  122 :
+  123 : /* (Negative) shape gradient of J */
+  124 : macro dJ() {
+  125 #   gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dpx(ux)+dy(uy)) - ell;
+  126 #   velext2;
+  127 # } // EOM
+  128 :
+  129 : /* Initialization */
+  130 : elas;
+  131 :
+  132 : /* Initial value of the objective function */
+  133 : vol     = Th.area;
+  134 : obj     = J    ( int1d(Th,GammaN)(gx*ux+gy*uy))  + ell*vol;
+  135 :
+  136 : /* Main optimization loop */
+  137 : for(int n=0; n<nit; n++){
+  138 :
+  139 :   /* Computation of the shape gradient as a P1 function and size of the time step */
+  140 :   dJ
+  125 @
+  126 @
+  127 @   {
+  125 @   gr0 = 2.0*mu*(dx(ux)*dx(ux) + 0.5*(dy(ux)+dx(uy))*(dy(ux)+dx(uy)) + dy(uy)*dy(uy)) + lambda*(dx(ux)+dy(uy))*(dpx(ux)+dy(uy)) - ell;
+  126 @   velext2;
+  127 @ } ;
+  141 :   ng = sqrt(grx*grx+gry*gry);
+  142 :   gmax = ng[].max;
+  143 :   step = coef*meshsiz / (eps^2+gmax);
+  144 :
+  145 :   /* Attempt motion of the mesh: if the moved mesh has an almost null or flipped element, restart the operation
+pwith a smaller step */
+  146 :   chkvoltri = checkmovemesh(Th,[x+step*grx,y+step*gry]);
+  147 :
+  148 :   if( chkvoltri < epsvoltri ) {
+  149 :     cout<<"Iteration "<<n<<" rejected; inverted triangle."<<endl;
+  150 :     coef *= 0.5;
+  151 :     continue;
+  152 :   }
+  153 :
+  154 :   /* Else, effectively move the new mesh */
+  155 :     Dh = movemesh(Th,[x+step*grx,y+step*gry]);
+  156 :
+  157 :   /* Resolution of the state equation */
+  158 :   uox = ux;
+  159 :   uoy = uy;
+  160 :   elas;
+  161 :
+  162 :   /* Evaluation of the new objective function */
+  163 :   vol    = Th.area;
+  164 :   newobj = J    ( int1d(Th,GammaN)(gx*ux+gy*uy))  + ell*vol;
+  165 :
+  166 :   /* Decision */
+  167 :   if( newobj < obj+tol*abs(obj) || coef <= coefmin ) {
+  168 :     cout<<"Iteration "<<n<<" accepted; objective: "<<obj<<" ---> "<<newobj<<endl;
+  169 :     cout<<"Volume: " << vol << endl;
+  170 :     obj   = newobj;
+  171 :     coef  = min(coefmax,1.02*coef);
+  172 :     Th    = Dh;
+  173 :
+  174 :     /* Adapt the mesh to the current solution of the elasticity system */
+  175 :
+  176 :     Th = adaptmesh(Th,[ux,uy],hmin=0.01,hmax=0.02);
+  177 :
+  178 :     hMax = hTriangle; // get sizes of all triangles
+  179 :     meshsiz = hMax[].max; // get maximal triangle size
+  180 :     cout << meshsiz << endl;
+  181 :     alpha = (2.0*meshsiz)^2;
+  182 :     chidir = locdir();
+  183 :     plot(Th,wait=0);
+  184 :   }
+  185 :   else {
+  186 :     cout<<"Iteration "<<n<<" rejected; objective: "<<obj<<" v.s. "<<newobj<<endl;
+  187 :     coef  = max(coefmin,0.6*coef);
+  188 :     ux    = uox;
+  189 :     uy    = uoy;
+  190 :   }
+  191 : }
+  192 :
+  193 : /* Print mesh and solution */
+  194 : //savemesh(Th,"Cantilever.mesh");
+  195 : //savesol("Cantilever.sol",Th,[ux,uy]);
+  196 :  sizestack + 1024 =17752  ( 16728 )
+ 
+Iteration 0 accepted; objective: 3.48268 ---> 3.48268
+Volume: 0.548569
+0.0298184
+Iteration 1 accepted; objective: 3.48268 ---> 3.47117
+Volume: 0.545258
+0.0292842
+Iteration 2 accepted; objective: 3.47117 ---> 3.46117
+Volume: 0.542947
+0.0288786
+Iteration 3 accepted; objective: 3.46117 ---> 3.45126
+Volume: 0.540904
+0.0292665
+Iteration 4 accepted; objective: 3.45126 ---> 3.44143
+Volume: 0.538867
+0.0293392
+Iteration 5 accepted; objective: 3.44143 ---> 3.43115
+Volume: 0.536794
+0.0293135
+Iteration 6 accepted; objective: 3.43115 ---> 3.42058
+Volume: 0.53468
+0.0299737
+Iteration 7 accepted; objective: 3.42058 ---> 3.40979
+Volume: 0.532541
+0.029876
+Iteration 8 accepted; objective: 3.40979 ---> 3.39863
+Volume: 0.530325
+0.0297541
+Iteration 9 accepted; objective: 3.39863 ---> 3.38726
+Volume: 0.528081
+0.0296323
+Iteration 10 accepted; objective: 3.38726 ---> 3.37576
+Volume: 0.525815
+0.0295108
+Iteration 11 accepted; objective: 3.37576 ---> 3.36416
+Volume: 0.523527
+0.0293898
+Iteration 12 accepted; objective: 3.36416 ---> 3.35246
+Volume: 0.521232
+0.0292693
+Iteration 13 accepted; objective: 3.35246 ---> 3.34042
+Volume: 0.518908
+0.0291481
+Iteration 14 accepted; objective: 3.34042 ---> 3.3282
+Volume: 0.516565
+0.0290273
+Iteration 15 accepted; objective: 3.3282 ---> 3.31579
+Volume: 0.514187
+0.0289067
+Iteration 16 accepted; objective: 3.31579 ---> 3.30318
+Volume: 0.511779
+0.0287844
+Iteration 17 accepted; objective: 3.30318 ---> 3.29046
+Volume: 0.509362
+0.0299681
+Iteration 18 accepted; objective: 3.29046 ---> 3.27755
+Volume: 0.506901
+0.0299294
+Iteration 19 accepted; objective: 3.27755 ---> 3.2638
+Volume: 0.504266
+0.0298959
+Iteration 20 accepted; objective: 3.2638 ---> 3.2498
+Volume: 0.5016
+0.0298623
+Iteration 21 accepted; objective: 3.2498 ---> 3.23557
+Volume: 0.49885
+0.0298362
+Iteration 22 accepted; objective: 3.23557 ---> 3.22114
+Volume: 0.496126
+0.0298059
+ try getConsole D:\Documents\X\3A\P2\MAP562 Structure Optimisation\Homework\MAP562-homework\PC7\Cantilever_Geometric_Optp.edp
