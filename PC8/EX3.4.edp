@@ -1,4 +1,4 @@
-//Homework 7 EX3.4 by Yucheng BU and Huihui ZHOU
+//Homework 8 EX3.4 by Yucheng BU and Huihui ZHOU
 
 /*
 The objectif drops quickly at the beginning and then it rises radically 
@@ -16,7 +16,7 @@ branches with finer mesh.
 
 int niter=240;			// Number of iteration
 int npen = 50;
-int n = 5;				// Mesh size
+int n = 10;				// Mesh size
 real pas=0.1 ;			// Stepsize
 real initpas = pas;
 int inddico ;
@@ -73,7 +73,7 @@ border b3(t=0.9,1)   { x=t; y=0;label=GammaD; };   // Inner boundary
 // Construction of the mesh //
 //////////////////////////////
 Th= buildmesh (bd(10*n)+bs(10*n)+bg(10*n)+b1(1*n)+b2(8*n)+b3(1*n));
-plot(Th,wait=0); 
+plot(Th,wait=0);
 
 
 plot(Th,wait=1);
@@ -95,26 +95,26 @@ macro trunc(u,mm,MM) min(max(u,mm),MM)// END of macro
 
 // Macro for projection on the integral constraint
 
-// !!!! Do not write comments with "//" in macros since this 
+// !!!! Do not write comments with "//" in macros since this
 // terminates a macro in FreeFem. Use /*...*/ instead if you want
-macro proj(u,u0,Vh) { 
+macro proj(u,u0,Vh) {
    real tmin = hmin-u[].linfty,tmax = hmax+u[].linfty;
    u  = trunc(u,hmin,hmax);
    real v0 = 1/Th.area*int2d(Th)(u);
    while(tmax-tmin>TOL&&abs(v0-u0)>TOL){
      real tmid = 0.5*(tmin+tmax);
-     Vh testu = trunc(tmid+u,hmin,hmax); 
+     Vh testu = trunc(tmid+u,hmin,hmax);
      v0 = 1/Th.area*int2d(Th)(testu);
      if(v0<u0){
        tmin = tmid;
-     } 
+     }
      else{
        tmax = tmid;
      }
      /*cout << tmin << " " << tmax << " " << v0-u0 << endl;*/
      /*cout << v0 << " " << u0 << endl;*/
    }
-   u = trunc(u+tmin,hmin,hmax); 
+   u = trunc(u+tmin,hmin,hmax);
 }// END of macro
 
 //theta = 1/Th.area*int2d(Th)(theta);
@@ -181,11 +181,11 @@ plot(p,fill=1,wait=1,cmm="Initial adjoint");
 
 // computing gradients w.r.t. phi and theta
 
-// macros are useful here, since we have long formulas 
+// macros are useful here, since we have long formulas
 // that we use multiple times...
 Vh0 gradphi;
 macro dPhi()
-  gradphi = 
+  gradphi =
    (lp*(-2*cos(ang)*sin(ang)*dx(u)-(cos(ang)^2-sin(ang)^2)*dy(u))
     +lm*(2*sin(ang)*cos(ang)*dx(u)+(cos(ang)^2-sin(ang)^2)*dy(u)))*dx(p)
    +(lp*(-(cos(ang)^2-sin(ang)^2)*dx(u)+2*sin(ang)*cos(ang)*dy(u))
@@ -193,7 +193,7 @@ macro dPhi()
 
 Vh0 gradtheta;
 macro dTheta()
-   gradtheta  = 
+   gradtheta  =
     (dlp*(cos(ang)^2*dx(u)-cos(ang)*sin(ang)*dy(u))
     +dlm*(sin(ang)^2*dx(u)+cos(ang)*sin(ang)*dy(u)))*dx(p)
    +(dlp*(-cos(ang)*sin(ang)*dx(u)+sin(ang)^2*dy(u))
@@ -231,13 +231,13 @@ objectifold=int1d(Th,GammaN)(g*u*u);
 
 
 // Optimization loop
-for (iter=1;iter<=niter;iter=iter+1)  
+for (iter=1;iter<=niter;iter=iter+1)
 {
 cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
 
 accept = 0; // variable to accept by default
 if(iter == npen){
- Cpen = 1; 
+ Cpen = 1;
  accept = 1;  // accept this iteration
 }
 
@@ -293,7 +293,7 @@ else
   cout << "    Objective: " << objectif   << endl ;
    cout<< "    Volume: "<<volume<<endl;
    legende="Iteration "+iter+", Cost "+objectif+", Volume="+volume;
-   //plot(Th,h,fill=1,value=0,viso=vviso,cmm=legende,wait=0); 
+   //plot(Th,h,fill=1,value=0,viso=vviso,cmm=legende,wait=0);
    //plot(u,fill=1,value=1,cmm="Heat distribution");
    Vh thetb = 1-theta;
    thetaold = theta;
@@ -305,15 +305,15 @@ else
    //plot(ang,fill=1,value=1,cmm="Plot of the angle: phi",wait=0,WindowIndex=1);
 
   // Compute the gradient using the adjoint method //
-  adjoint ;   // uncomment this when you need to compute the adjoint 
+  adjoint ;   // uncomment this when you need to compute the adjoint
   //p = -u;       // adjoint for the compliance
-  
+
   objectifold = objectif;
-  
+
   dPhi;
   if(iter>=npen){  // modify gradient when using a penalization
  	 dTheta;
- 	 gradtheta = gradtheta+Cpen*(1-2*theta); 
+ 	 gradtheta = gradtheta+Cpen*(1-2*theta);
   }
   else{
     dTheta;
@@ -344,5 +344,3 @@ plot([dis,vals],cmm="Evolution of the objective function");
 
 // If the plot is not shown correctly in the window type + to fix the view
 // With P and Enter you can go to previous and next plots
-
-
