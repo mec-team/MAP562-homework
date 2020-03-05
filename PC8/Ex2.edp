@@ -181,7 +181,7 @@ for (int i = 1; i<10; i++){
 plot([m1list,A11list],wait=1,cmm="Evoluion of cost function A*11");
 plot([m1list,A22list],wait=1,cmm="Evoluion of cost function A*22");
 
-// If alpha is smaller then beta, when m1 increase, the eigenvalues of A* decrease.
-// If alpha is bigger then beta, when m1 increase, the eigenvalues of A* also increase.
+// If alpha is smaller than beta, when m1 increases, the eigenvalues of A* decrease.
+// If alpha is bigger than beta, when m1 increases, the eigenvalues of A* also increase.
 // The plots seem symmetric in these two cases.
-// But the value of (alpha/bete) do not influence the form of the plot in each case.
+// But the value of (alpha/beta) does not influence much the form of the plot in each case.
