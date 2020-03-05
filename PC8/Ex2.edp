@@ -133,9 +133,11 @@ cout <<" Astar21_task2 = " << Astar21task2 <<endl;
 cout <<" Astar22_task2 = " << Astar22task2 <<endl;
 // The results of these two task are similar with a relative error of 2%
 
-//Question 2.4
+// Question 2.4
 alpha=1.;
 beta=2.;
+//alpha=2.;
+//beta=1.;
 real[int] A11list(9), A22list(9),m1list(9);
 real Astar11, Astar12, Astar21, Astar22;
 
