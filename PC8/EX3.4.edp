@@ -8,7 +8,8 @@ the objectif rises for the last time when we change the penalty coefficient
 and then it decreass and stablizes util the end. While refining the mesh 
 by using n = 2,5,10 (the algorithm runs really slowly when n is large so 
 we didn't go up utill 20), generally we get finer and neater structures, 
-the little flaws causing rough structures dsappear. 
+the little flaws causing rough structures dsappear, but we still get more 
+branches with finer mesh. 
 */
 
 
