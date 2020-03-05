@@ -1,8 +1,16 @@
-// G. Allaire, B. Bogosel
-// MAP562, January 2019
+//Homework 7 EX3.4 by Yucheng BU and Huihui ZHOU
 
-// Optimization using rank-1 laminates in 2D
-// by optimizing in theta and phi simultaneously
+/*
+The objectif drops quickly at the beginning and then it rises radically 
+because of the penalty we added at the 50th iteration. Then the algorithm 
+works well and reduces the objectif once again. And at the 150th iteration 
+the objectif rises for the last time when we change the penalty coefficient 
+and then it decreass and stablizes util the end. While refining the mesh 
+by using n = 2,5,10 (the algorithm runs really slowly when n is large so 
+we didn't go up utill 20), generally we get finer and neater structures, 
+the little flaws causing rough structures dsappear. 
+*/
+
 
 
 int niter=240;			// Number of iteration
@@ -146,7 +154,7 @@ problem adjoint(p,w) =
     +lm*(sin(ang)^2*dx(p)+cos(ang)*sin(ang)*dy(p)))*dx(w)
   +( lp*(-cos(ang)*sin(ang)*dx(p)+sin(ang)^2*dy(p))
     +lm*(sin(ang)*cos(ang)*dx(p)+cos(ang)^2*dy(p)))*dy(w))
-   +int1d(Th,GammaN)( g*w )
+   +int1d(Th,GammaN)( 2*g*u*w )
    +on(GammaD,p=0)
 ;
 
@@ -160,7 +168,7 @@ volume0=int2d(Th)(theta);
 
 heat;
 plot(u,fill=1,wait=1,cmm="Initial temperature");
-objectif=int1d(Th,GammaN)(g*u);
+objectif=int1d(Th,GammaN)(g*u*u);
 
 cout<<"Initialization. Objective: "<<objectif<<" Volume: "<<volume0<<endl;
 
@@ -216,7 +224,7 @@ angold   = ang;
 
 
 uold = u ;
-objectifold=int1d(Th,GammaN)(g*u);
+objectifold=int1d(Th,GammaN)(g*u*u);
 //reg;
 
 
@@ -255,9 +263,9 @@ ang = angold-pas*gradphi;
 heat;
 
 //Compute the objective function
-objectif=int1d(Th,GammaN)(g*u);
+objectif=int1d(Th,GammaN)(g*u*u);
 if(iter>=npen){// modify objective when using penalization
-  objectif=int1d(Th,GammaN)(g*u)+Cpen*int2d(Th)(theta*(1-theta));
+  objectif=int1d(Th,GammaN)(g*u*u)+Cpen*int2d(Th)(theta*(1-theta));
 }
 vals[iter-1] = objectif;
 
@@ -296,8 +304,8 @@ else
    //plot(ang,fill=1,value=1,cmm="Plot of the angle: phi",wait=0,WindowIndex=1);
 
   // Compute the gradient using the adjoint method //
-  //adjoint ;   // uncomment this when you need to compute the adjoint 
-  p = -u;       // adjoint for the compliance
+  adjoint ;   // uncomment this when you need to compute the adjoint 
+  //p = -u;       // adjoint for the compliance
   
   objectifold = objectif;
   
@@ -325,13 +333,13 @@ cout << "Min theta=" << theta[].min << " Max theta=" << theta[].max << endl;
 //Show the final shape
 legende="Final shape, Iteration "+iter+", Cost "+objectif+", Volume="+volume;
 Vh thetb = 1-theta;
-plot(Th,thetb,fill=1,value=0,cmm=legende);
+plot(Th,thetb,fill=1,value=0,cmm=legende,wait=1);
 
 //vals[vals.n] = vals[vals.n-1];
 
 // Show convergence curve
 real[int] dis = 1:niter;
-//plot([dis,vals],cmm="Evolution of the objective function");
+plot([dis,vals],cmm="Evolution of the objective function");
 
 // If the plot is not shown correctly in the window type + to fix the view
 // With P and Enter you can go to previous and next plots

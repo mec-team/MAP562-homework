@@ -1,10 +1,11 @@
-// Optimal radiator                  //
-//                                   //
-// Ecole Polytechnique, MAP 562      //
-// Copyright G. Allaire, 2004        //
-// 	     		 	     //
-// modified by T. Wick, N. Spillane, B. Bogosel  //
+//Homework 7 EX3.3 by Yucheng BU and Huihui ZHOU
 
+/*
+It is a little bit confusing that there's actually nothing to modify and the 
+original given code works perfectly to solve the Exercice 3.3. While refining 
+the mesh by using n = 3,5,7,10,20, generally we can see more branches and 
+'fissures' generated at the top area of the domain. 
+*/
 
 //Problem parameters
 int niter=100;			// Number of total iterations
