@@ -9,7 +9,7 @@
 //Problem parameters
 int niter=250;			// Number of total iterations
 int npen= 50;			// Starting iterations without penalization
-int N=10;			// Size of the mesh
+int N=20;			// Size of the mesh
 real lagrange=1.;		// Lagrange multiplier for the volume
 real lagmin, lagmax ;		// Lower and upper bounds of the Lagrange multiplier
 int inddico ;	    		// Counter of iterations of the dichonomy problem
@@ -108,7 +108,7 @@ Vh0 theta,density, thetb,A,tau,gradient,thetaold;
 ////////////////////////////////////
 // Proportions of the two phases  //
 ////////////////////////////////////
-theta = 0.4;//1-theta0;//1-0.280379;//theta0 ;
+theta = 0.6;//1-theta0;//1-0.280379;//theta0 ;
 
 
 ///////////////////////////////
