@@ -1,0 +1,9 @@
+// rectangle
+int Nb = 2;
+int flag = 2;  // see what happens when changing the flag parameter (0,1,2,...)
+int GammaD=1, Gamma=2, GammaN=3;
+mesh Th1 = square(Nb*1,Nb*0.4,[x*1,0.6+y*0.4],flags=flag, label=[GammaD,0,Gamma,Gamma]);
+mesh Th2 = square(Nb*1,Nb*0.2,[x*1,0.4+y*0.2],flags=flag, label=[GammaD,0,Gamma,GammaN]);
+mesh Th3 = square(Nb*1,Nb*0.4,[x*1,y*0.4],flags=flag, label=[GammaD,0,Gamma,Gamma]);
+mesh Th = Th1 + Th2 + Th3;
+plot(Th,cmm="Rectangular mesh",wait=1);

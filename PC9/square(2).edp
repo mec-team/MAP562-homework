@@ -1,0 +1,32 @@
+// rectangle
+int Nb = 2;
+int flag = 2;  // see what happens when changing the flag parameter (0,1,2,...)
+int GammaD=1, Gamma=2, GammaN=3;
+mesh Th1 = square(Nb*1,Nb*0.4,[x*1,0.6+y*0.4],flags=flag, label=[GammaD,0,Gamma,Gamma]);
+mesh Th2 = square(Nb*1,Nb*0.2,[x*1,0.4+y*0.2],flags=flag, label=[GammaD,0,Gamma,GammaN]);
+mesh Th3 = square(Nb*1,Nb*0.4,[x*1,y*0.4],flags=flag, label=[GammaD,0,Gamma,Gamma]);
+mesh Th = Th1 + Th2 + Th3;
+plot(Th,cmm="Rectangular mesh",wait=1);
+
+// L-beam
+// use multi-border to define a polygon
+int GammaD=1, Gamma=2, GammaN=3, GammaW=4;
+int N=10;
+real[int] xL = [0,2,2,2,2,1,1,0];
+real[int] yL = [0,0,0.375,0.625,1,1,2,2];
+int[int] labelL = [Gamma,Gamma,GammaN,Gamma,Gamma,Gamma,GammaD,Gamma];
+int[int] numberL = N*[2,0.375,0.25,0.375,1,1,1,2];
+
+border Lbord(t=0,1; i){
+   int nexti = (i+1)%xL.n;
+   x = (1-t)*xL[i]+t*xL[nexti];
+   y = (1-t)*yL[i]+t*yL[nexti];
+   label = labelL[i];
+}
+border wr(t=0,0.5)   { x=2; y=0.25+t;label=GammaW; };     // Right boundary
+border wl(t=0.5,1)   { x=1.75; y=0.25+t;label=GammaW; };     // Left boundary
+border wt(t=0.25,0)   { x=1.75+t; y=0.75;label=GammaW; };     // Top boundary
+border wb(t=0,0.25)   { x=t; y=0.25;label=GammaW; };   // Bottom boundary
+mesh Th = buildmesh(Lbord(numberL)+wr(N*0.5)+wl(N*0.5)+wt(N*0.25)+wb(N*0.25));
+
+plot(Th,wait=1,cmm="Mesh of Lbeam");
