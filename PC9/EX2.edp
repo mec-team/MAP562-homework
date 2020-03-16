@@ -289,7 +289,7 @@ cout << "Theta min=" << theta[].min << "Theta max=" << theta[].max << endl;
 // Final updates and visualization
 
 caption="Final Shape, Iteration "+iter+", Objective fct "+objectivefct+", Volume="+volume;
-plot(Th,theta,fill=1,viso=vviso,cmm=caption);
+plot(Th,theta,fill=1,viso=vviso,cmm=caption,wait = 1);
 
 real[int] dis(niter);
 dis = 1:niter;
