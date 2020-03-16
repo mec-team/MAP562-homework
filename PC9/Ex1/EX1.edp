@@ -1,9 +1,4 @@
-// Optimal radiator                  //
-//                                   //
-// Ecole Polytechnique, MAP 562      //
-// Copyright G. Allaire, 2004        //
-// 	     		 	     //
-// modified by T. Wick, N. Spillane, B. Bogosel  //
+//Homework 9 Ex1 by Yucheng BU and Huihui ZHOU
 
 
 //Problem parameters
@@ -16,10 +11,9 @@ int inddico ;	    		// Counter of iterations of the dichonomy problem
 real objectivefct;		// Objective function 
 real volume0;			// Initial volume
 real volume,volume1;		// Current volume
-real maxstep = 0.1;
+real maxstep = 0.5;
 
-real gx=0,gy=1;
-real g0x=0.4,g0y=1;
+real gx=0,gy=-1;
 
 real E=1;			// Young modulus
 real nu=0.3;			// Poisson coefficient (between -1 and 1/2)
@@ -60,6 +54,10 @@ func theta0=(x>0.1)*(x<0.9)*(y<0.9) ;
 //////////////////////////////// 	1:Dirichlet condition
 // Definition of the domain   // 	2:Neumann condition
 //////////////////////////////// 	3:Non-homogen. Neumann (temp. flux)
+//////////////////////////////
+// Construction of the mesh //
+//////////////////////////////
+
 // L-beam
 // use multi-border to define a polygon
 int GammaD=1, Gamma=2, GammaN=3, GammaW=4;
@@ -90,10 +88,6 @@ plot(Th,wait=1,cmm="Mesh of Lbeam");
 
 fespace Vh0(Th,P0);			
 fespace Vh2(Th,P2);			
-
-// get region numbers
-int Omega1 = Th(1,0.5).region;
-int Omega2 = Th(1.8,0.5).region;
 
 // Solution variable: T
 // Test function: v
@@ -129,14 +123,6 @@ problem elasticity([u,v],[w,s]) =
    -int1d(Th,GammaN)(gx*w+gy*s)	         
     +on(GammaD,u=0,v=0);
 
-Vh2 pp,qq;
-problem adjoint([pp,qq],[w,s]) =
-    int2d(Th)(A*(2.*mu*e(pp,qq)'*e(w,s)
-             +lambda*div(pp,qq)*div(w,s)))
-   +int2d(Th,Omega2)(2*(u*w+v*s))	         
-    +on(GammaD,pp=0,qq=0);
-
-
 ////////////////////////////////
 // In the following, we perform
 // the initialization of the 
@@ -152,12 +138,9 @@ volume0=int2d(Th)(theta);
 // to initialize the objective function.
 A= (alpha*(1-(theta)^p)+beta*(theta)^p);
 elasticity;
-adjoint;
-
-plot([pp,qq],wait=1);
 
 // Compute the objective function
-objectivefct=int2d(Th,Omega2)(u*u+v*v);
+objectivefct = int1d(Th,GammaN)(gx*u+gy*v);
 cout<<"Initialization. Objective fct = "<<objectivefct<<" Volume = "<<volume0<<endl;
 
 
@@ -202,15 +185,15 @@ macro proj(u,u0,Vh) {
  
 real objold=objectivefct;
 Vh2 uold,vold;
-Vh2 Pold,Qold;
 
 real[int] vals(niter);
 vals[0] = objectivefct;
 int accept;
 
-uold = u;Pold = pp;
-vold = v;Qold = qq;
+uold = u;
+vold = v;
 thetaold = theta;
+
 for (iter=1;iter< niter;iter=iter+1)  
 {
 accept = 0;
@@ -219,8 +202,8 @@ cout <<"Iteration " <<iter <<" ----------------------------------------" <<endl;
 
 
 // Computing the energy density
-gradient = p*(theta)^(p-1)*(beta-alpha)*
-         (2*mu*e(u,v)'*e(pp,qq)+lambda*div(u,v)*div(pp,qq));
+gradient = -p*(theta)^(p-1)*(beta-alpha)*
+         (2*mu*e(u,v)'*e(u,v)+lambda*div(u,v)*div(u,v));
 
 // Update the proportions of the two phases and 
 // project them onto their limit values if necessary
@@ -253,17 +236,16 @@ elasticity;
 //plot(T,wait=1);
 
 // Evaluate the cost functional
-objectivefct=int2d(Th,Omega2)(u*u+v*v);
+objectivefct=int1d(Th,GammaN)(gx*u+gy*v);
 vals[iter] = objectivefct;
 cout<<"Objective fct: "<<objectivefct<<" Volume: "<<volume <<endl;
 
 if(objectivefct<objold*1.00001|| accept==1){
-   adjoint;
-   uold = u;Pold = pp;
-   vold = v;Qold = qq;
+   uold = u;
+   vold = v;
    thetaold = theta;
    objold = objectivefct;
-   step = 1.1*step;
+   step = 1.5*step;
    step = min(step,maxstep);
 
    // Finally we update the proportion
@@ -276,8 +258,8 @@ else{
    cout << "Reject " << endl;
    iter = iter-1;
    step = step/2;
-   u = uold;pp=Pold;
-   v = vold;qq=Qold;
+   u = uold;
+   v = vold;
    theta = thetaold;
 }
 
@@ -289,7 +271,7 @@ cout << "Theta min=" << theta[].min << "Theta max=" << theta[].max << endl;
 // Final updates and visualization
 
 caption="Final Shape, Iteration "+iter+", Objective fct "+objectivefct+", Volume="+volume;
-plot(Th,theta,fill=1,viso=vviso,cmm=caption,wait = 1);
+plot(Th,theta,fill=1,viso=vviso,cmm=caption,ps="n=20_gamma=0.4.png",wait = 1);
 
 real[int] dis(niter);
 dis = 1:niter;
